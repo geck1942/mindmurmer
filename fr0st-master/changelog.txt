@@ -1,0 +1,127 @@
+Fr0st 1.4
+---------
+
+GUI:
+    -Variation preview now has layers of different depths, to better show off what each xform is actually doing.
+    -Highlight triangle corners when hovering over them with mouse.
+    -Small preview now uses multiple threads on systems with more than 2 cores.
+
+Bugfixes:
+    -Allow unicode paths for favorite scripts.
+    -Fixed several bugs that occurred when manipulating flames with non-black backgrounds.
+    -Small alpha values in palette produced by smooth interpolation (due to rounding errors) are now ignored.
+    -Fixed bug where some error messages were being cut short.
+    -Fixed bug where starting a script while the canvas was being manipulated led to an inconsistent program state.
+
+
+
+Fr0st 1.3
+---------
+
+GUI:
+    -Added gradient browser, which is able to load .ugr, .map, .xml and .flame files.
+    -Preview renders are now cached, so the same images aren't rendered over and over again.
+    -Added anim tab, where flame time and related attributes can be set. Also added a script to create interpolated animation sequences using those attributes.
+    -Increased size of small preview to better fill the available space.
+    
+Bugfixes:
+    -Fixed a bug that made it impossible to change some of the configuration settings.
+    -Added space requirement of output image to memory calculation in render dialog.
+    -Installer now displays the correct version.
+    -Various small fixes.
+
+
+
+Fr0st 1.2
+---------
+
+GUI:
+    -Triangles on Canvas are now translucent.
+    -Disable GUI interaction while a script is running.
+    -Added list of recent flames and scripts to respective menus.
+    -Added list of favorite scripts with hotkeys for quick execution.
+
+Installation:
+    -Added script for Ubuntu that automatically installs all dependencies.
+
+Bugfixes:
+    -Avoid crash when rendering on 64-bit Unix systems.
+    -Rotate buttons in xform tab now take into account world pivot.
+    -Xform tab now updates correctly when selecting post transforms.
+    -Recovery after a crash now brings fr0st back to its exact previous state, including full undo/redo history.
+    -Script input dialog now checks for invalid input and raises an error.
+    -Render dialog no longer displays flame names in status bar when rendering, since this could lead to overlapping text on some systems.
+    -Many, many more...
+
+
+
+Fr0st 1.1
+---------
+
+GUI
+    -Added vibrancy to adjust panel
+    -Xform editor now handles post and final xforms much more intuitively.
+    -Hide irrelevant tabs when post or final xform is selected
+    -Preview and render dialogs now show rendering info in their title bars.
+    -Opening files is now faster.
+    -Eliminated several sources of slowdown when handling very large files.
+    -Don't render thumbnails when opening large files.
+    -Quality of jpg renders can now be configured. Default is 95.
+    -Can now paste multiple flames at once.
+    -If a script causes an error, a helpful dialog with all details is shown.
+    -If fr0st crashes or the computer loses power, unsaved changes are recovered next time it is opened.
+
+Flam3 integration:
+    -Rendering now 5-10% faster due to better integration with the GUI.
+    -Default buffer size is now 64-bit, making for another 10% speed improvement. Also improves performance of thumbnail and preview images.
+    -Images with non-black backgrounds now render correctly on windows.
+
+Flam4 integration:
+    -Can now render transparent backgrounds.
+    -Fixed bug where black image was returned when changing certain parameters.
+    
+Installation:
+    -No longer have to compile extension module when installing on linux.
+
+Various bugfixes:
+    -Fixed possible error when editing flame names.
+    -Fixed possible error when dragging flames around.
+    -Check for invalid paths (i.e. malformed or pointing to a read-only dir), and handle them correctly.
+    -Many, many more.
+
+
+
+Fr0st 1.0
+---------
+
+-Minor Bugfixes.
+
+
+
+Fr0st 1.0 beta2
+---------------
+
+-Flame coloring is now passed correctly to flam4.
+
+-Imported scripts are now reloaded on each run.
+
+-Remember last open flame and render dir.
+
+-Fixed a bug in version check that messed up chaos values.
+
+-changed flam3 batch size, making for faster rendering on some systems.
+
+-Limit displayed length of flame name in render progress bar.
+  
+-File selection of render dialog is now in save mode.
+
+-Update previews after changing quality settings.
+
+-Many small bugfixes.
+
+
+
+Fr0st 1.0 beta
+--------------
+
+-First release.
