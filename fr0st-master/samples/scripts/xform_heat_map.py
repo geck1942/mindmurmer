@@ -18,7 +18,7 @@ for x in flame.xform:
     x.color = 1/16. + x.index % 8 / 8.
 
 
-preview()
+#preview()
 large_preview()
 update_flame = False
 dialog("Keep Changes?")
