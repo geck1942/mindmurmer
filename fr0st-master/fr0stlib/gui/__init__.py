@@ -76,7 +76,9 @@ class Fr0stApp(wx.App):
             self.resource_dir = self.standard_paths.GetResourcesDir()
 
         # On *nix, GetDocumentsDir returns ~.  use .fr0st rather than fr0st
-        user_dir = self.standard_paths.GetDocumentsDir()
+        # run as a standalone, no remote files (user data). Use local dir
+        user_dir = self.AppBaseDir
+
         if os.path.realpath(os.path.expanduser('~')) == os.path.realpath(user_dir):
             self.user_dir = os.path.join(user_dir, '.fr0st')
         else:

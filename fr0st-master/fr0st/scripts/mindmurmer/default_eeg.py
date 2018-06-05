@@ -1,4 +1,5 @@
 import logging
+import random
 import audiosources
 import numpy as np
 import wx
@@ -21,8 +22,8 @@ class MMEngine:
     def start(self):
         play = True
         while play:
-            preview()
-            # large_preview()
+            #preview()
+            large_preview()
             play = self.render()
             # next form
             self.frameindex += 1
@@ -37,19 +38,31 @@ class MMEngine:
             audiodata = self.GetFFT(audiodata)
 
             # FLAME UPDATE
-            if(self.frameindex % 251 == 0):
+            if(self.frameindex % 251 == 123):
                 # Add a new form until 5
-                # initialscale = 0.9
-                # xform = flame.add_xform()
-                # xform.scale(initialscale)
-                # xform.rotate(0)
-                # calculate_colors(flame.xform)
-                randopt = { 'xv':range(1,6), 'n':2, 'xw':0, 'fx':True, "chance":.5 }
-                newform = Xform.random(flame, **randopt)
-                newform.animate = 1
-                #flame.xform.append(newform)
-                if(len(flame.xform) > 5):
+                x = flame.add_xform()
+                #x.coefs = [-0.993819,0.005246,-0.146631,-0.991539,0.799877,-2.399268]
+                x.coefs = [1, 0, 0, 0, 0, 0]
+                x.a = -1.0
+                x.xp += random.uniform(-.5, +.5)
+                x.yp += random.uniform(-.5, +.5)
+                x.op += random.uniform(-.5, +.5)
+                x.linear = 1
+                # x.waves2 = 1
+                # x.waves2_freqx = random.randint(4,6)
+                # x.waves2_scalex = 0.02 + random.uniform(0,0.03)
+                # x.waves2_freqy = random.randint(11,19)
+                # x.waves2_scaley = -0.02 + random.uniform(0,0.01)
+                x.weight = 1
+                x.color = random.random()
+                x.color_speed = random.uniform(0,0.1)
+                x.rotate(random.random() * 360)
+                x.animate = 1
+                if(len(flame.xform) > 3):
                     del flame.xform[0]
+                #flame.reframe()
+                # calculate_colors(flame.xform)
+                
             freqindex = 0
             # ROTATION
             for x in flame.xform:
@@ -78,7 +91,7 @@ class MMEngine:
                     audiodataindex = freqindex % len(audiodata)
                     movx_delta *= audiodata[audiodataindex] 
                     movy_delta *= audiodata[(freqindex + 1) % len(audiodata)]
-                    #x.xp += movx_delta
+                    x.op += movx_delta
                     #x.yp += movy_delta
                 freqindex += 2
 
