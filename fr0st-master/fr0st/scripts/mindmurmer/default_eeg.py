@@ -9,6 +9,7 @@ class EEGSource:
     def __init__(self, channels):
         self.channelscount = channels
 
+    # dummy EEG data
     def read_data(self):
         return [-3] * self.channelscount
 
@@ -17,21 +18,22 @@ class MMEngine:
         self.EEGSource = EEGSource
         self.AudioSource = AudioSource
         self.frameindex = 0
-        self.bounds = wx.Rect(-3,-3,6,6)
 
     def start(self):
         play = True
         while play:
-            #preview()
-            large_preview()
             play = self.render()
-            # next form
             self.frameindex += 1
+
+            #    preview() for animating wireframe window
+            # OR large_preview() for animating rendered window
+            large_preview()
+
 
     def render(self):
         docontinue = True
         try:
-            # get data as [] from ext. source
+            # get eeg data as [] from ext. source
             eegdata = self.EEGSource.read_data()
             # get audio data from current input source
             audiodata = self.AudioSource.read_data()
@@ -39,29 +41,29 @@ class MMEngine:
 
             # FLAME UPDATE
             if(self.frameindex % 251 == 123):
-                # Add a new form until 5
+                # Add a new form
                 x = flame.add_xform()
-                #x.coefs = [-0.993819,0.005246,-0.146631,-0.991539,0.799877,-2.399268]
-                x.coefs = [1, 0, 0, 0, 0, 0]
+                x.coefs = [1, 0, 0.1, 0.2, 0, 0]
                 x.a = -1.0
                 x.xp += random.uniform(-.5, +.5)
                 x.yp += random.uniform(-.5, +.5)
                 x.op += random.uniform(-.5, +.5)
                 x.linear = 1
-                # x.waves2 = 1
-                # x.waves2_freqx = random.randint(4,6)
-                # x.waves2_scalex = 0.02 + random.uniform(0,0.03)
-                # x.waves2_freqy = random.randint(11,19)
-                # x.waves2_scaley = -0.02 + random.uniform(0,0.01)
                 x.weight = 1
                 x.color = random.random()
                 x.color_speed = random.uniform(0,0.1)
                 x.rotate(random.random() * 360)
                 x.animate = 1
+
+                # remove form older than 3
                 if(len(flame.xform) > 3):
                     del flame.xform[0]
+
+                # move window
                 #flame.reframe()
-                # calculate_colors(flame.xform)
+
+                # update colors
+                #calculate_colors(flame.xform)
                 
             freqindex = 0
             # ROTATION
@@ -129,6 +131,7 @@ class MMEngine:
 
         return freqs
 
+# static math methods:
 def reduceAndClamp(inrange_value, inrange_min, inrange_max, outrange_min = 0, outrange_max = 1, overflow = False):
     inpct = (inrange_value - inrange_min) / (inrange_max - inrange_min)
     return clamp(inpct, outrange_min, outrange_max, overflow)
@@ -151,6 +154,7 @@ def easing_square(percent, minvalue = 0, maxvalue = 1):
     percent -= 2
     return ((maxvalue - minvalue) / 2) * (percent * percent + 2) + minvalue
 
+# static audio source method:
 def getAudioSource():
     print('Get Audio source')
     try:
@@ -176,7 +180,9 @@ def getAudioSource():
     
     return None
 
+# RUN
 eeg = EEGSource(5)
 audio = getAudioSource()
+
 engine = MMEngine(eeg, audio)
 engine.start()
