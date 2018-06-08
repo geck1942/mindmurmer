@@ -8,16 +8,22 @@ from utils import calculate_colors
 class EEGSource:
     def __init__(self, channels):
         self.channelscount = channels
+        self.values = [0.5] * self.channelscount
 
-    # dummy EEG data
     def read_data(self):
-        return [-3] * self.channelscount
+        # generate dummy EEG data
+        for x in range(0, self.channelscount):
+            self.values[x] += random.uniform(-0.03, 0.03)
+        return self.values
 
 class MMEngine:
     def __init__(self, EEGSource, AudioSource):
         self.EEGSource = EEGSource
         self.AudioSource = AudioSource
         self.frameindex = 0
+        self.speed = 1
+        self.channels = 24
+        self.sinelength = 300 # frames
 
     def start(self):
         play = True
@@ -28,6 +34,7 @@ class MMEngine:
             #    preview() for animating wireframe window
             # OR large_preview() for animating rendered window
             large_preview()
+            preview()
 
 
     def render(self):
@@ -42,18 +49,18 @@ class MMEngine:
             # FLAME UPDATE
             if(self.frameindex % 251 == 123):
                 # Add a new form
-                x = flame.add_xform()
-                x.coefs = [1, 0, 0.1, 0.2, 0, 0]
-                x.a = -1.0
-                x.xp += random.uniform(-.5, +.5)
-                x.yp += random.uniform(-.5, +.5)
-                x.op += random.uniform(-.5, +.5)
-                x.linear = 1
-                x.weight = 1
-                x.color = random.random()
-                x.color_speed = random.uniform(0,0.1)
-                x.rotate(random.random() * 360)
-                x.animate = 1
+                # x = flame.add_xform()
+                # x.coefs = [1, 0, 0.1, 0.2, 0, 0]
+                # x.a = -1.0
+                # x.xp += random.uniform(-.5, +.5)
+                # x.yp += random.uniform(-.5, +.5)
+                # x.op += random.uniform(-.5, +.5)
+                # x.linear = 1
+                # x.weight = 1
+                # x.color = random.random()
+                # x.color_speed = random.uniform(0,0.1)
+                # x.rotate(random.random() * 360)
+                # x.animate = 1
 
                 # remove form older than 3
                 if(len(flame.xform) > 3):
@@ -65,37 +72,40 @@ class MMEngine:
                 # update colors
                 #calculate_colors(flame.xform)
                 
-            freqindex = 0
-            # ROTATION
+            dataindex = 0
             for x in flame.xform:
-                # calculate rotation amount from data elements
                 if(x.animate and audiodata is not None):
-                    audiodataindex = freqindex % len(audiodata)
-                    rotx_delta = (audiodata[audiodataindex]) * 10
-                    x.rotate(rotx_delta)
-                freqindex += 1
+                    # ROTATION
+                    # calculate rotation amount from data elements
+                    data = audiodata[dataindex % len(audiodata)]
+                    dataindex += 1 # next data from audiodata
+                    x.rotate(data * 0.5 * self.speed)
 
-            # MOVEMENT
-            # every 257 frames is a cycle of X back and forth.
-            if(self.frameindex % 147 < 73):
-                movx_delta = -1
-            else:
-                movx_delta = 1
-            # every 149 frames is a cycle of Y back and forth.
-            if(self.frameindex % 61 < 30):
-                movy_delta = -1
-            else:
-                movy_delta = 1
+                    # MOVEMENT
+                    # calculate move amount from data elements
+                    data = audiodata[dataindex % len(audiodata)]
+                    dataindex += 1 # next data from audiodata
+                    # every n frames is a cycle of X back and forth.
+                    data *= np.sin(self.frameindex * (np.pi * 2) / self.sinelength)
+                    mov_delta = data * 0.01 * self.speed
+                    # move triangle x, y, o points
+                    x.xp += mov_delta
+                    x.yp += mov_delta
+                    x.op += mov_delta
 
-            for x in flame.xform:
-                # calculate move amount from data elements
-                if(x.animate and audiodata is not None):
-                    audiodataindex = freqindex % len(audiodata)
-                    movx_delta *= audiodata[audiodataindex] 
-                    movy_delta *= audiodata[(freqindex + 1) % len(audiodata)]
-                    x.op += movx_delta
-                    #x.yp += movy_delta
-                freqindex += 2
+                    # transform the triangle by moving again, one vertice
+                    data = audiodata[dataindex % len(audiodata)] 
+                    dataindex += 1 # next data from audiodata
+                    # every n frames is a cycle of X back and forth.
+                    data *= np.sin(self.frameindex * (np.pi * 2) / self.sinelength)
+                    x.yp += data * 0.01 * self.speed
+                    
+                    # COEFS
+                    # change one of the coefficients
+                    data = audiodata[dataindex % len(audiodata)]
+                    dataindex += 1 # next data from audiodata
+                    coefindex = random.randint(0, 31)
+                    x.coefs[coefindex] =  x.coefs[coefindex] + data * 0.05 * self.speed
 
             return True
         except Exception as ex:
@@ -113,7 +123,7 @@ class MMEngine:
         #max_freq = abs(freq[fft == np.amax(fft)][0]) / 2
         max_amplitude = 196 * 1000
         
-        freqs = np.zeros(6)
+        freqs = np.zeros(self.channels)
         #indices = (len(fft) - np.logspace(0, np.log10(len(fft)), len(bins), endpoint=False).astype(int))[::-1]
         #for i in xrange(len(bins) - 1):
         #    bins[i] = np.mean(fft[indices[i]:indices[i+1]]).astype(int)
@@ -181,7 +191,7 @@ def getAudioSource():
     return None
 
 # RUN
-eeg = EEGSource(5)
+eeg = EEGSource(24)
 audio = getAudioSource()
 
 engine = MMEngine(eeg, audio)
