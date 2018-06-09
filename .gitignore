@@ -1,0 +1,11 @@
+# compiled code
+*.pyc
+
+# visual studio
+.vscode
+
+# PyCharm files
+.idea
+
+# virtualenv
+mindmurmurvirtualenv
