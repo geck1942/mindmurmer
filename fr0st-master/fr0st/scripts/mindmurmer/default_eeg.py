@@ -34,7 +34,7 @@ class MMEngine:
             #    preview() for animating wireframe window
             # OR large_preview() for animating rendered window
             large_preview()
-            preview()
+            #preview()
 
 
     def render(self):
@@ -90,22 +90,22 @@ class MMEngine:
                     mov_delta = data * 0.01 * self.speed
                     # move triangle x, y, o points
                     x.xp += mov_delta
-                    x.yp += mov_delta
-                    x.op += mov_delta
+                    #x.yp += mov_delta
+                    #x.op += mov_delta
 
                     # transform the triangle by moving again, one vertice
                     data = audiodata[dataindex % len(audiodata)] 
                     dataindex += 1 # next data from audiodata
                     # every n frames is a cycle of X back and forth.
                     data *= np.sin(self.frameindex * (np.pi * 2) / self.sinelength)
-                    x.yp += data * 0.01 * self.speed
+                    #x.yp += data * 0.01 * self.speed
                     
                     # COEFS
                     # change one of the coefficients
-                    data = audiodata[dataindex % len(audiodata)]
-                    dataindex += 1 # next data from audiodata
-                    coefindex = random.randint(0, 31)
-                    x.coefs[coefindex] =  x.coefs[coefindex] + data * 0.05 * self.speed
+                    # data = audiodata[dataindex % len(audiodata)]
+                    # dataindex += 1 # next data from audiodata
+                    # coefindex = random.randint(0, len(x.coefs))
+                    # x.coefs[coefindex] =  x.coefs[coefindex] + data * 0.05 * self.speed
 
             return True
         except Exception as ex:
