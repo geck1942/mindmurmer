@@ -1,0 +1,8 @@
+# compiled code
+*.pyc
+
+# fr0st temps files
+*.bak
+
+# visual studio
+.vscode
