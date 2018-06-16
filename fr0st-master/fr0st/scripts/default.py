@@ -6,3 +6,4 @@ while True:
         if x.animate:
             x.rotate(-3)
     preview()
+    large_preview()

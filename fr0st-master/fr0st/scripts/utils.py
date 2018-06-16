@@ -14,6 +14,8 @@ def calculate_colors(xforms):
 
 
 def normalize_weights(flame, norm=1.0):
+    if(flame.xform is None or len(flame.xform) == 0):
+        return
     """Normalize the weights of the xforms so that they total 1.0"""
     ws = sum(xf.weight for xf in flame.xform) / norm
     for xf in flame.xform:
