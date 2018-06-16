@@ -3,7 +3,6 @@ import random
 import numpy as np
 import wx
 from utils import calculate_colors, normalize_weights
-from prefabs import FlamePrefabs
 
 import audiosources
 from eegsources import * 
@@ -16,8 +15,7 @@ class MMEngine:
         self.speed = 1
         self.channels = 24
         self.sinelength = 300 # frames
-        self.prefabs = FlamePrefabs()
-
+        
     def start(self):
         play = True
         while play:
@@ -181,7 +179,7 @@ class MMEngine:
             x5.rotate(random.random() * 360)
 
 # static audio source method:
-def getAudioSource():
+def getAudioSource(filepath):
     print('Get Audio source')
     try:
         # record Microphone with Pyaudio    
@@ -196,7 +194,7 @@ def getAudioSource():
         try:
             # read test .wav with Pyaudio    
             print('Reading test media file')
-            media = audiosources.MediaFile("audio/midnightstar_crop.wav")
+            media = audiosources.MediaFile(filepath)
             if (media is not None):
                 print('media file OK')
                 return media
@@ -207,9 +205,11 @@ def getAudioSource():
     return None
 
 # RUN
-audio = getAudioSource()
+audio = getAudioSource(dir_path + '/audio/midnightstar_crop.wav')
 # eeg = EEGDummy()
 eeg = EEGFromAudio(audio)
+#eeg = EEGFromJSONFile(dir_path + '/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
+#eeg = EEGFromJSONFile(dir_path + '/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 
 engine = MMEngine(eeg, audio)
 engine.start()

@@ -2,9 +2,8 @@ import sys
 import numpy as np
 import wave
 import pyaudio
-import os
+
 # RUNNING SETTINGS
-dir_path = os.path.dirname(os.path.realpath(__file__))
 chunksize = 1024
 
 # microphone SETTINGS
@@ -31,9 +30,9 @@ class AudioSource:
 
 class MediaFile(AudioSource):
 
-    def __init__(self, file):
+    def __init__(self, filepath):
         """ Init audio stream """ 
-        self.wf = wave.open(dir_path + "/" + file, 'rb')
+        self.wf = wave.open(filepath, 'rb')
         self.p = pyaudio.PyAudio()
         self.outstream = self.p.open(
             format = self.p.get_format_from_width(self.wf.getsampwidth()),

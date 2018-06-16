@@ -3,6 +3,10 @@ import random
 import numpy as np
 from utils import reduceAndClamp
 
+
+import os 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
 class EEGData():
     # inline values
     def __init__(self, values):
@@ -53,7 +57,38 @@ class EEGDummy(EEGSource):
             self.rawdata[self.channels * 5] = 0
 
         return EEGData(self.rawdata)
+
+
+class EEGFromJSONFile(EEGSource):
+    def __init__(self, filepath):
+        #super(EEGDummy, self).__init__() 
+        # open json file
+        self.samplelength = 0
+        self.sampleindex = 0
+        import json
+        try:
+            with open(filepath) as f:
+                jsondata = json.load(f)
+                print('file loaded')
+                self.samplelength = len(jsondata['timeseries']['alpha_relative']['timestamps'])
+                print(str(self.samplelength) + ' samples found')
+                self.channels = jsondata['meta_data']['config'][0]['eeg_channel_count']
+                print(str(self.channels) + ' channels found')
+                self.rawdata = []
+                for i in range(self.samplelength):
+                    eegsampledata = jsondata['timeseries']['alpha_relative']['samples'][i] + jsondata['timeseries']['beta_relative']['samples'][i] + jsondata['timeseries']['gamma_relative']['samples'][i] + jsondata['timeseries']['delta_relative']['samples'][i] + jsondata['timeseries']['theta_relative']['samples'][i] + jsondata['timeseries']['blink']['samples'][i]
+                    self.rawdata.append(EEGData(eegsampledata))
+        except Exception as jsonex:
+            print('error during loading JSON: ' + str(jsonex))
         
+    # iterate samples
+    def read_data(self):
+        if(self.sampleindex >= self.samplelength):
+            print("SAMPLE JSON file is over. Restart")
+            self.sampleindex = 0
+        sampledata = self.rawdata[self.sampleindex]
+        self.sampleindex += 1
+        return sampledata
 
 class EEGFromAudio(EEGSource):
     def __init__(self, audiosource):
