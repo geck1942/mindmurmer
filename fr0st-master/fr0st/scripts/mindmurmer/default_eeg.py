@@ -38,13 +38,7 @@ class MMEngine:
         try:
             # get eeg data as [] from ext. source
             eegdata = self.EEGSource.read_data()
-            # get audio data from current input source
-            audiodata = self.AudioSource.read_data()
-            audiodata = self.GetFFT(audiodata)
-
-            # shows the spectrum of the current data:
-            showFFT(audiodata)
-
+            #if(self.frameindex % 10 == 2) : print(str(eegdata.waves))
             # FLAME UPDATE (at least 25 frames apart)
             if(eegdata.blink == 1 and self.frameindex > 2500):
                 self.NewFlame()
@@ -61,7 +55,7 @@ class MMEngine:
 
             dataindex = 0
             for x in flame.xform:
-                if(x.animate and audiodata is not None):
+                if(x.animate and eegdata is not None):
                     # ROTATION
                     # calculate rotation amount from data elements
                     data = eegdata.waves[dataindex % len(eegdata.waves)]
@@ -74,7 +68,7 @@ class MMEngine:
                     dataindex += 1 # next data from audiodata
                     # every n frames is a cycle of X back and forth.
                     data *= np.sin(self.frameindex * (np.pi * 2) / self.sinelength)
-                    mov_delta = data * 0.01 * self.speed
+                    mov_delta = data * 0.02 * self.speed
                     # move triangle x, y, o points
                     #x.xp += mov_delta
                     #x.yp += mov_delta
@@ -186,61 +180,6 @@ class MMEngine:
             x5.linear = 0.0
             x5.rotate(random.random() * 360)
 
-    def GetFFT(self, audiodata):
-
-        fft = np.absolute(np.fft.rfft(audiodata, n=len(audiodata)))
-        freq = np.fft.fftfreq(len(fft), d=1./self.AudioSource.getSampleRate())
-        #max_freq = abs(freq[fft == np.amax(fft)][0]) / 2
-        max_amplitude = 196 * 1000
-        
-        freqs = np.zeros(self.channels)
-        #indices = (len(fft) - np.logspace(0, np.log10(len(fft)), len(bins), endpoint=False).astype(int))[::-1]
-        #for i in xrange(len(bins) - 1):
-        #    bins[i] = np.mean(fft[indices[i]:indices[i+1]]).astype(int)
-        #bins[-1] = np.mean(fft[indices[-1]:]).astype(int)
-        
-        step = int(len(fft) / len(freqs))
-        for i in range(len(freqs)):
-            freqs[i] = np.mean(fft[i:i+step])
-            # custom noise reduction (remove anything below 20%)
-            # + custom scale from 0:max_amplitude to 0:1
-            freqs[i] = reduceAndClamp(freqs[i], 0, max_amplitude, 0, 1, False)
-            # cubic easing
-            #freqs[i] = freqs[i]**0.5
-            #if(self.frameindex % 12 == 0 and i == 2) : print(str(freqs[i]))
-
-        return freqs
-
-# static math methods:
-def reduceAndClamp(inrange_value, inrange_min, inrange_max, outrange_min = 0, outrange_max = 1, overflow = False):
-    inpct = (inrange_value - inrange_min) / (inrange_max - inrange_min)
-    return clamp(inpct, outrange_min, outrange_max, overflow)
-
-def clamp(percent, outrange_min = 0, outrange_max = 1, overflow = False):
-    delta = outrange_max - outrange_min
-    if (overflow == False and percent > 1): percent = 1
-    if (overflow == False and percent < 0): percent = 0
-    return (percent * delta) + outrange_min
-
-def easing_cubic(percent, minvalue = 0, maxvalue = 1):
-    percent *= 2
-    if(percent < 1) : return ((maxvalue - minvalue) / 2) * percent * percent * percent + minvalue
-    percent -= 2
-    return ((maxvalue - minvalue) / 2) * (percent * percent * percent + 2) + minvalue
-
-def easing_square(percent, minvalue = 0, maxvalue = 1):
-    percent *= 2
-    if(percent < 1) : return ((maxvalue - minvalue) / 2) * percent * percent + minvalue
-    percent -= 2
-    return ((maxvalue - minvalue) / 2) * (percent * percent + 2) + minvalue
-
-# static wx Painting methods:
-def showFFT(audiodata):
-    # dc = wx.PaintDC(wx.App.MainWindow.previewframe)
-    # dc.SetPen(wx.Pen(wx.WHITE, 4))
-    # dc.DrawLine(0, 0, 50, 50)
-    return
-
 # static audio source method:
 def getAudioSource():
     print('Get Audio source')
@@ -268,8 +207,9 @@ def getAudioSource():
     return None
 
 # RUN
-eeg = EEGDummy()
 audio = getAudioSource()
+# eeg = EEGDummy()
+eeg = EEGFromAudio(audio)
 
 engine = MMEngine(eeg, audio)
 engine.start()

@@ -19,8 +19,17 @@ BUFFER_SIZE = 5000
 MEDIASAMPLE_RATE = 44000 # [Hz]
 MEDIACHANNEL_COUNT = 2
 
-class MediaFile:
+class AudioSource:
+    def __init__(self):
+        self.outstream = None
 
+    def getSampleRate(self):
+        return MEDIASAMPLE_RATE
+        
+    def getSampleMax(self):
+        return SAMPLE_MAX
+
+class MediaFile(AudioSource):
 
     def __init__(self, file):
         """ Init audio stream """ 
@@ -46,14 +55,11 @@ class MediaFile:
         if len(data):
             return data
 
-    def getSampleRate(self):
-        return MEDIASAMPLE_RATE
-
     def close(self):
         self.outstream.close()
         self.p.terminate()
 
-class Microphone:
+class Microphone(AudioSource):
 
     def __init__(self):
         self.p = pyaudio.PyAudio()
@@ -61,11 +67,11 @@ class Microphone:
         self.outstream = self.p.open(
                         format = pyaudio.paInt16,
                         channels = CHANNEL_COUNT,
-                        rate = getSampleRate(),
+                        rate = self.getSampleRate(),
                         output = True)
         self.micstream = self.p.open(format = pyaudio.paInt16,
                         channels = CHANNEL_COUNT,
-                        rate = getSampleRate(),
+                        rate = self.getSampleRate(),
                         input = True,
                         frames_per_buffer = BUFFER_SIZE)
 
