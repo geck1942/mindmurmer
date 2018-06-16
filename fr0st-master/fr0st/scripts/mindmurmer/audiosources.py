@@ -1,6 +1,7 @@
 import numpy as np
 import wave
 import pyaudio
+import os
 
 # RUNNING SETTINGS
 chunksize = 1024
@@ -36,7 +37,7 @@ class MediaFile(AudioSource):
         self.outstream = self.p.open(
             format = self.p.get_format_from_width(self.wf.getsampwidth()),
             channels = MEDIACHANNEL_COUNT,
-            rate = self.getSampleRate(),
+            rate = self.get_sample_rate(),
             output = True
         )
 
@@ -44,12 +45,14 @@ class MediaFile(AudioSource):
     # that should be calles (parameterless) to read data as a stream.
     def read_data(self):
         audiosource_data = self.wf.readframes(chunksize)
+
         # set as audio ouput what we just read.
-        if audiosource_data != '':
+        if audiosource_data != '' and os.getenv("MINDMURMUR_PLAY_RECORDED_AUDIOSOURCE", "true").lower() == "true":
             self.outstream.write(audiosource_data)
 
         # convert and return readable data
         data = np.fromstring(audiosource_data, 'int16').astype(float)
+
         if len(data):
             return data
 
@@ -65,13 +68,13 @@ class Microphone(AudioSource):
         self.outstream = self.p.open(
                         format = pyaudio.paInt16,
                         channels = CHANNEL_COUNT,
-                        rate = self.getSampleRate(),
+                        rate = self.get_sample_rate(),
                         output = True)
         self.micstream = self.p.open(format = pyaudio.paInt16,
-                        channels = CHANNEL_COUNT,
-                        rate = self.getSampleRate(),
-                        input = True,
-                        frames_per_buffer = BUFFER_SIZE)
+                                     channels = CHANNEL_COUNT,
+                                     rate = self.get_sample_rate(),
+                                     input = True,
+                                     frames_per_buffer = BUFFER_SIZE)
 
     # read_data is the method shared among audiosources 
     # that should be calles (parameterless) to read data as a stream.
@@ -87,7 +90,7 @@ class Microphone(AudioSource):
         if len(data):
             return data
             
-    def getSampleRate(self):
+    def get_sample_rate(self):
         return SAMPLE_RATE
 
     def close(self):

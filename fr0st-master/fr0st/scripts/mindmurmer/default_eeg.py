@@ -21,10 +21,10 @@ import audiosources
 from eegsources import * 
 
 class MMEngine:
-    def __init__(self, EEGSource, AudioSource):
-        self.EEGSource = EEGSource
-        self.AudioSource = AudioSource
-        self.frameindex = 0
+    def __init__(self, eeg_source, audio_source):
+        self.eeg_source = eeg_source
+        self.audio_source = audio_source
+        self.frame_index = 0
         self.speed = 1
         self.channels = 24
         self.sinelength = 300 # frames
@@ -80,29 +80,14 @@ class MMEngine:
                     # every n frames is a cycle of X back and forth.
                     data *= np.sin(self.frameindex * (np.pi * 2) / self.sinelength)
                     mov_delta = data * 0.02 * self.speed
-                    # move triangle x, y, o points
-                    #x.xp += mov_delta
-                    #x.yp += mov_delta
-                    x.op += mov_delta
-
-                    # # transform the triangle by moving again, one vertice
-                    # data = audiodata[dataindex % len(audiodata)] 
-                    # dataindex += 1 # next data from audiodata
-                    # # every n frames is a cycle of X back and forth.
-                    # data *= np.sin(self.frameindex * (np.pi * 2) / self.sinelength)
-                    # #x.yp += data * 0.01 * self.speed
-                    
-                    # COEFS
-                    # change one of the coefficients
 
             return True
         except Exception as ex:
             logging.exception(ex)
             print('error during rendering: ' + str(ex))
-            docontinue = False
 
-        # SHOW preview on Fr0st
-        return docontinue
+            # SHOW preview on Fr0st
+            return False
 
     # Generate a whole new Flame
     def NewFlame(self):
