@@ -12,3 +12,6 @@
 
 # virtualenv
 mindmurmurvirtualenv
+
+# local conf files
+fr0st-master/fr0st/config.cfg
