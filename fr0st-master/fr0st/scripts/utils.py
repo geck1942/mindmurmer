@@ -14,6 +14,8 @@ def calculate_colors(xforms):
 
 
 def normalize_weights(flame, norm=1.0):
+    if(flame.xform is None or len(flame.xform) == 0):
+        return
     """Normalize the weights of the xforms so that they total 1.0"""
     ws = sum(xf.weight for xf in flame.xform) / norm
     for xf in flame.xform:
@@ -41,3 +43,25 @@ def animation_preview(flames, repeat=True):
         fr0stlib.show_status("previewing %s" %f)
 
                
+# static math methods:
+def reduceAndClamp(inrange_value, inrange_min, inrange_max, outrange_min = 0, outrange_max = 1, overflow = False):
+    inpct = (inrange_value - inrange_min) / (inrange_max - inrange_min)
+    return clamp(inpct, outrange_min, outrange_max, overflow)
+
+def clamp(percent, outrange_min = 0, outrange_max = 1, overflow = False):
+    delta = outrange_max - outrange_min
+    if (overflow == False and percent > 1): percent = 1
+    if (overflow == False and percent < 0): percent = 0
+    return (percent * delta) + outrange_min
+
+def easing_cubic(percent, minvalue = 0, maxvalue = 1):
+    percent *= 2
+    if(percent < 1) : return ((maxvalue - minvalue) / 2) * percent * percent * percent + minvalue
+    percent -= 2
+    return ((maxvalue - minvalue) / 2) * (percent * percent * percent + 2) + minvalue
+
+def easing_square(percent, minvalue = 0, maxvalue = 1):
+    percent *= 2
+    if(percent < 1) : return ((maxvalue - minvalue) / 2) * percent * percent + minvalue
+    percent -= 2
+    return ((maxvalue - minvalue) / 2) * (percent * percent + 2) + minvalue
