@@ -1,4 +1,3 @@
-import sys
 import numpy as np
 import wave
 import pyaudio
@@ -79,7 +78,9 @@ class Microphone(AudioSource):
     def read_data(self):
         audiosource_data = self.micstream.read(self.micstream.get_read_available())
         # set as audio ouput what we just read.
-        self.outstream.write(audiosource_data)
+
+        if os.getenv("MINDMURMUR_PLAY_RECORDED_AUDIOSOURCE", "true").lower() == "true":
+            self.outstream.write(audiosource_data)
 
         # convert and return readable data
         data = np.fromstring(audiosource_data, 'int16').astype(float)

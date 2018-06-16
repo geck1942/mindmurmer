@@ -1,8 +1,21 @@
-import logging
 import random
 import numpy as np
 import wx
 from utils import calculate_colors, normalize_weights
+import logging
+import audiosources
+import numpy as np
+
+from fr0stlib import Flame
+
+if 'flame' not in locals() and 'flame' not in globals():
+    print "generating random flame"
+    flame = Flame()
+
+class EEGSource:
+    def __init__(self, channels):
+        self.channelscount = channels
+        self.values = [0.5] * self.channelscount
 
 import audiosources
 from eegsources import * 
@@ -81,13 +94,10 @@ class MMEngine:
                     
                     # COEFS
                     # change one of the coefficients
-                    # data = audiodata[dataindex % len(audiodata)]
-                    # dataindex += 1 # next data from audiodata
-                    # coefindex = random.randint(0, len(x.coefs))
-                    # x.coefs[coefindex] =  x.coefs[coefindex] + data * 0.05 * self.speed
 
             return True
         except Exception as ex:
+            logging.exception(ex)
             print('error during rendering: ' + str(ex))
             docontinue = False
 
