@@ -1,10 +1,7 @@
-
 import random
 import numpy as np
-from utils import reduceAndClamp
+import os
 
-
-import os 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 class EEGData():
@@ -102,8 +99,11 @@ class EEGFromAudio(EEGSource):
         # read audio data
         audiodata = self.audiosource.read_data()
         audiodata = self.GetFFT(audiodata)
-        self.rawdata[0 : self.channels * 5] = audiodata
+
+        self.rawdata[0 : self.channels * 5] = audiodata if audiodata is not None else [0 for i in range(len(self.rawdata[0 : self.channels * 5]))]
+
         # blink on random 0.05%
+
         if(random.random() >= 0.995):
             self.rawdata[self.channels * 5] = 1
         else:
@@ -112,6 +112,9 @@ class EEGFromAudio(EEGSource):
         return EEGData(self.rawdata)
 
     def GetFFT(self, audiodata):
+        if audiodata is None:
+            return None
+
         # generate an FFT over 5 x n channels
         freqs = np.zeros(self.channels * 5)
 

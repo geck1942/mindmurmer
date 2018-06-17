@@ -1,10 +1,4 @@
-import random
-import numpy as np
-import wx
-from utils import calculate_colors, normalize_weights
 import logging
-import audiosources
-import numpy as np
 
 from fr0stlib import Flame
 
@@ -38,9 +32,7 @@ class MMEngine:
             #preview()
 
             play = self.render()
-            self.frameindex += 1
-
-
+            self.frame_index += 1
 
     def render(self):
         docontinue = True
@@ -48,12 +40,12 @@ class MMEngine:
             return False
         try:
             # get eeg data as [] from ext. source
-            eegdata = self.EEGSource.read_data()
-            #if(self.frameindex % 10 == 2) : print(str(eegdata.waves))
+            eegdata = self.eeg_source.read_data()
+            #if(self.frame_index % 10 == 2) : print(str(eegdata.waves))
             # FLAME UPDATE (at least 25 frames apart)
-            if(eegdata.blink == 1 and self.frameindex > 2500):
+            if(eegdata.blink == 1 and self.frame_index > 2500):
                 self.NewFlame()
-                self.frameindex = 0
+                self.frame_index = 0
                 print("BLINK: new flames generated")
                 # adjust form weights (from utils)
                 #normalize_weights(flame)
@@ -78,7 +70,7 @@ class MMEngine:
                     data = eegdata.waves[dataindex % len(eegdata.waves)]
                     dataindex += 1 # next data from audiodata
                     # every n frames is a cycle of X back and forth.
-                    data *= np.sin(self.frameindex * (np.pi * 2) / self.sinelength)
+                    data *= np.sin(self.frame_index * (np.pi * 2) / self.sinelength)
                     mov_delta = data * 0.02 * self.speed
 
             return True
