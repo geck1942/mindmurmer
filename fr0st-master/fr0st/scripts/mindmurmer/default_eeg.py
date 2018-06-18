@@ -28,8 +28,8 @@ class MMEngine:
         while play:
             #    preview() for animating wireframe window
             # OR large_preview() for animating rendered window
-            large_preview()
-            #preview()
+            # large_preview()
+            preview()
 
             play = self.render()
             self.frame_index += 1
@@ -166,7 +166,7 @@ class MMEngine:
             x5.rotate(random.random() * 360)
 
 # static audio source method:
-def getAudioSource(filepath):
+def get_audio_source(filepath):
     print('Get Audio source')
     try:
         # record Microphone with Pyaudio    
@@ -192,9 +192,9 @@ def getAudioSource(filepath):
     return None
 
 # RUN
-audio = getAudioSource(dir_path + '/audio/midnightstar_crop.wav')
-# eeg = EEGDummy()
-eeg = EEGFromAudio(audio)
+audio = get_audio_source("fr0st/scripts/mindmurmur/audio/midnightstar_crop.wav")
+eeg = EEGDummy()
+# eeg = EEGFromAudio(audio)
 #eeg = EEGFromJSONFile(dir_path + '/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
 #eeg = EEGFromJSONFile(dir_path + '/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 

@@ -18,20 +18,21 @@ BUFFER_SIZE = 5000
 MEDIASAMPLE_RATE = 44000 # [Hz]
 MEDIACHANNEL_COUNT = 2
 
-class AudioSource:
+class AudioSource(object):
     def __init__(self):
-        self.outstream = None
+        self.out_stream = None
 
-    def getSampleRate(self):
+    def get_sample_rate(self):
         return MEDIASAMPLE_RATE
         
-    def getSampleMax(self):
+    def get_sample_max(self):
         return SAMPLE_MAX
 
 class MediaFile(AudioSource):
-
     def __init__(self, filepath):
-        """ Init audio stream """ 
+        """ Init audio stream """
+        super(MediaFile, self).__init__()
+
         self.wf = wave.open(filepath, 'rb')
         self.p = pyaudio.PyAudio()
         self.outstream = self.p.open(
@@ -40,6 +41,7 @@ class MediaFile(AudioSource):
             rate = self.get_sample_rate(),
             output = True
         )
+
 
     # read_data is the method shared among audiosources 
     # that should be calles (parameterless) to read data as a stream.
@@ -63,30 +65,32 @@ class MediaFile(AudioSource):
 class Microphone(AudioSource):
 
     def __init__(self):
+        super(Microphone, self).__init__()
+
         self.p = pyaudio.PyAudio()
 
-        self.outstream = self.p.open(
+        self.out_stream = self.p.open(
                         format = pyaudio.paInt16,
                         channels = CHANNEL_COUNT,
                         rate = self.get_sample_rate(),
                         output = True)
-        self.micstream = self.p.open(format = pyaudio.paInt16,
-                                     channels = CHANNEL_COUNT,
-                                     rate = self.get_sample_rate(),
-                                     input = True,
-                                     frames_per_buffer = BUFFER_SIZE)
+        self.mic_stream = self.p.open(format = pyaudio.paInt16,
+                                      channels = CHANNEL_COUNT,
+                                      rate = self.get_sample_rate(),
+                                      input = True,
+                                      frames_per_buffer = BUFFER_SIZE)
 
     # read_data is the method shared among audiosources 
     # that should be calles (parameterless) to read data as a stream.
     def read_data(self):
-        audiosource_data = self.micstream.read(self.micstream.get_read_available())
+        audio_source_data = self.mic_stream.read(self.mic_stream.get_read_available())
         # set as audio ouput what we just read.
 
         if os.getenv("MINDMURMUR_PLAY_RECORDED_AUDIOSOURCE", "true").lower() == "true":
-            self.outstream.write(audiosource_data)
+            self.out_stream.write(audio_source_data)
 
         # convert and return readable data
-        data = np.fromstring(audiosource_data, 'int16').astype(float)
+        data = np.fromstring(audio_source_data, 'int16').astype(float)
         if len(data):
             return data
             
@@ -94,6 +98,6 @@ class Microphone(AudioSource):
         return SAMPLE_RATE
 
     def close(self):
-        self.outstream.close()
-        self.micstream.close()
+        self.out_stream.close()
+        self.mic_stream.close()
         self.p.terminate()
