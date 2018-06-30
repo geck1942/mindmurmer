@@ -16,7 +16,7 @@ class EEGData():
         self.blink = values[self.channels * 5]
         # sum of the 5 waves
         self.waves = [self.alpha, self.beta, self.gamma, self.delta, self.theta]
-    
+
 
 class EEGSource(object):
     def __init__(self):
@@ -25,7 +25,7 @@ class EEGSource(object):
         # 4 channels x 5 waves
         # + blink = 21
         self.raw_data = [0.0] * 21
-        
+
     def read_data(self):
         return EEGData(self.raw_data)
 
@@ -99,7 +99,7 @@ class EEGFromJSONFile(EEGSource):
 
 class EEGFromAudio(EEGSource):
     def __init__(self, audio_source):
-        super(EEGFromAudio, self).__init__() 
+        super(EEGFromAudio, self).__init__()
         self.audio_source = audio_source
         # blink
         self.raw_data[self.channels * 5] = 0
@@ -137,7 +137,7 @@ class EEGFromAudio(EEGSource):
         #for i in xrange(len(bins) - 1):
         #    bins[i] = np.mean(fft[indices[i]:indices[i+1]]).astype(int)
         #bins[-1] = np.mean(fft[indices[-1]:]).astype(int)
-        
+
         step = int(len(fft) / len(freqs))
         for i in range(len(freqs)):
             freqs[i] = np.mean(fft[i:i+step]) / float(self.audio_source.get_sample_max()) / 10
@@ -149,4 +149,10 @@ class EEGFromAudio(EEGSource):
             #if(i == 2) : print(str(freqs[i]))
 
         return freqs
+
+
+class EEGSource:
+    def __init__(self, channels):
+        self.channelscount = channels
+        self.values = [0.5] * self.channelscount
 
