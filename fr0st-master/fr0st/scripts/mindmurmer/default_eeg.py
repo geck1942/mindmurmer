@@ -1,6 +1,8 @@
 import logging
+import time
 
 from fr0stlib import Flame
+from fr0stlib.render import save_image
 
 if 'flame' not in locals() and 'flame' not in globals():
     print "generating random flame"
@@ -15,24 +17,35 @@ import audiosources
 from eegsources import * 
 
 class MMEngine:
-    def __init__(self, eeg_source, audio_source):
+    def __init__(self, eeg_source, audio_source, gui):
         self.eeg_source = eeg_source
         self.audio_source = audio_source
         self.frame_index = 0
         self.speed = 1
         self.channels = 24
         self.sinelength = 300 # frames
-        
+        self.gui = gui
+        self.fps = 25 # target frames per second
+
     def start(self):
         play = True
         while play:
-            #    preview() for animating wireframe window
-            # OR large_preview() for animating rendered window
-            # large_preview()
-            preview()
-
+            t0 = time.clock()
             play = self.render()
+            # animate wireframe window
+            #preview()
+            #self.gui.image.RenderPreview()
+
+            # animate preview window
+            self.gui.previewframe.RenderPreview()
+
+            # count frame number
+            show_status("render frame: %s" %(self.frame_index))
             self.frame_index += 1
+            
+            # sleep to keep a decent fps
+            delay = t0 + 1./self.fps - time.clock()
+            if delay > 0 : time.sleep(delay)
 
     def render(self):
         docontinue = True
@@ -198,5 +211,6 @@ eeg = EEGDummy()
 #eeg = EEGFromJSONFile(dir_path + '/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
 #eeg = EEGFromJSONFile(dir_path + '/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 
-engine = MMEngine(eeg, audio)
+#_self is some hidden hack from fr0st that refers to the gui MainWindow
+engine = MMEngine(eeg, audio, _self)
 engine.start()
