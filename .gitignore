@@ -1,5 +1,8 @@
 # compiled code
 *.pyc
+build
+dist
+*.egg-info/
 
 # fr0st temps files
 *.bak

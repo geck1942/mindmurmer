@@ -39,7 +39,7 @@ class ThreadingOscUDPServer(socketserver.ThreadingMixIn, OscUDPServer):
     pass
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--ip",
                         default="0.0.0.0", help="The ip to listen on")
