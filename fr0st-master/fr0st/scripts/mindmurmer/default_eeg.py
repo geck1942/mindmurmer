@@ -52,7 +52,7 @@ class MMEngine:
 				self.frame_index = 0
 				print("BLINK: new flames generated")
 
-				self.audio_controller.switch_track("mode-we're-going-into")
+				self.audio_controller.mix_track("mode-we're-going-into")
 
 			dataindex = 0
 			for x in flame.xform:

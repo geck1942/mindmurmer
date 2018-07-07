@@ -9,8 +9,9 @@ from collections import defaultdict
 from aubio import source, sink, pvoc, cvec, tempo, unwrap2pi, float_type
 from numpy import median, diff
 
-
-FADEOUT_SECONDS = 3
+# I cannot figure out the scale of these, not seconds.. these values seem right
+FADEOUT_AMOUNT = 10
+FADEIN_AMOUNT = 300
 
 
 class AudioController(object):
@@ -20,33 +21,43 @@ class AudioController(object):
 
 	TODO(AmirW): make this non blocking :)
 	"""
-	def __init__(self, audio_folder, sample_rate=16000):
-		self._validate_audio_folder(audio_folder)
+	def __init__(self, audio_folder, sound_filename, sample_rate=16000):
+		self._validate_audio_files(audio_folder, sound_filename)
 
 		self.audio_folder = audio_folder
+		self.sound_filename = sound_filename
 		self.sample_rate = sample_rate
 		self.current_playing_track = None
 		self.tracks_to_mode_map = defaultdict(list)
+		self.current_playing_sound = None
 
+		self._prep_sound()
 		self._map_tracks_by_rate()
 
 		swmixer.init(samplerate=sample_rate, chunksize=1024, stereo=True)
 		swmixer.start()
 
-	def _validate_audio_folder(self, audio_folder):
-		""" Validate "audio_folder" is an actual folder
+	def _validate_audio_files(self, audio_folder, sound_filename):
+		""" Validate "audio_folder" is an actual folder and that "sound_filename" is an actual file
 
 		:param audio_folder: path to tracks folder on system
+		:param sound_filename: path to sound file on system
 		"""
 		if not os.path.isdir(audio_folder):
 			raise ValueError("{folder} folder does not exists on system".format(folder=audio_folder))
 
+		if not os.path.isfile(sound_filename):
+			raise ValueError("{sound_filename} file does not exists on system".format(sound_filename=sound_filename))
+
 		logging.info("using audio folder: {audio_folder}".format(audio_folder=audio_folder))
+
+	def _prep_sound(self):
+		snd = swmixer.Sound(self.sound_filename)
+		self.sound_chan = snd
+		self.sound_len_seconds = logging.info("sound len is {len}".format(len=snd.get_length() / self.sample_rate))
 
 	def _map_tracks_by_rate(self):
 		""" Iterate over audio_folder and get bpm for each track and map songs to BOM
-
-		:return:
 		"""
 		for track_filename in os.listdir(self.audio_folder):
 			bpm = AudioController.get_track_bmp(os.path.join(self.audio_folder, track_filename))
@@ -64,28 +75,45 @@ class AudioController(object):
 		return self.tracks_to_mode_map[sorted(self.tracks_to_mode_map.keys())[mode]][0]
 
 	def _mix_track(self, track_filename):
+		""" Mix a track with path "track filename" to play. If another track is playing, fade it out, and fade this in
+
+		:param track_filename: track filename to fade in
+		"""
 		track_full_path = os.path.join(self.audio_folder, track_filename)
+		fadein_time = 0
 
 		if self.current_playing_track is not None:
-			logging.info("fading out current track to end in {fadeout} seconds".format(fadeout=FADEOUT_SECONDS))
-			# TODO(AmirW): figureout time scale of fadetime
-			self.current_playing_track.set_volume(0, fadetime=FADEOUT_SECONDS*1000)
-			time.sleep(FADEOUT_SECONDS - 1)
+			logging.info("fading out current track to end in {fadeout} seconds".format(fadeout=FADEOUT_AMOUNT))
+			self.current_playing_track.set_volume(0, fadetime=self.sample_rate * FADEOUT_AMOUNT)
+			fadein_time = self.sample_rate * FADEIN_AMOUNT
+			logging.info("faded")
 
 		# fade in of one second
 		snd = swmixer.Sound(track_full_path)
-		chan = snd.play(fadein=self.sample_rate * 1)
+		chan = snd.play(fadein=fadein_time)
 		self.current_playing_track = chan
 		logging.info("starting playing {track}".format(track=track_filename))
 
-	def switch_track(self, mode):
-		""" Gracefully play a track mapped to "mode". If another track is already playing - fade it out
+	def mix_track(self, mode):
+		""" Gracefully mix in a track mapped to "mode". If another track is already playing - fade it out
 
-		:param mode:
+		:param mode: a target value to choose a track by
 		"""
 		# fetch the track mapped to "mode"
 		track_filename = self._get_track_for_mode(mode)
 		self._mix_track(track_filename)
+
+	def play_sound_with_bpm(self, bpm):
+		""" Play with "bpm" beats per minute by calling starting a self calling timer
+
+		:param bpm:
+		:return:
+		"""
+		# (TODO: AmirW) we'll need to pre-sample the heartbeat rate at different BPMs (60 BPM - sound lasts a second, 120
+		# sound lasts 0.5 a second
+
+		# Load the correct sound with BPM and repeat until called with another BPM
+		pass
 
 	@staticmethod
 	def get_track_bmp(path, params=None):
@@ -241,6 +269,7 @@ class AudioController(object):
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Process some integers.')
 	parser.add_argument('--audio_folder', dest='audio_folder', help="The folder with the tracks")
+	parser.add_argument('--sound_filename', dest='sound_filename', help="The filename of the base sound")
 	parser.add_argument('--create_multi_tempo_versions', dest='create_multi_tempo_versions', action='store_true',
 						default=False, help='create multi tempo versions of each track in --audio_folder')
 
@@ -250,15 +279,21 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-	ac = AudioController(args.audio_folder)
+	ac = AudioController(args.audio_folder, args.sound_filename)
 
 	if args.create_multi_tempo_versions:
+		# (TODO: AmirW): this ability might not be needed, to be resolved.
 		pass
 
-	ac.switch_track(0)
+	ac.play_sound_with_bpm(60)
 
+	logging.info("mixing in track 1")
+	ac.mix_track(0)
+	logging.info("mixed in track 1")
 	time.sleep(10)
 
-	ac.switch_track(1)
+	logging.info("mixing in track 2")
+	ac.mix_track(1)
+	logging.info("mixed in track 2")
 
 	time.sleep(10)
