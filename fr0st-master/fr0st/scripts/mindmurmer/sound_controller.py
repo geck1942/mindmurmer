@@ -30,12 +30,13 @@ class AudioController(object):
 		self.current_playing_track = None
 		self.tracks_to_mode_map = defaultdict(list)
 		self.current_playing_sound = None
-
-		self._prep_sound()
-		self._map_tracks_by_rate()
+		self.sound_snd = None
 
 		swmixer.init(samplerate=sample_rate, chunksize=1024, stereo=True)
 		swmixer.start()
+
+		self._prep_sound()
+		self._map_tracks_by_rate()
 
 	def _validate_audio_files(self, audio_folder, sound_filename):
 		""" Validate "audio_folder" is an actual folder and that "sound_filename" is an actual file
@@ -52,9 +53,9 @@ class AudioController(object):
 		logging.info("using audio folder: {audio_folder}".format(audio_folder=audio_folder))
 
 	def _prep_sound(self):
-		snd = swmixer.Sound(self.sound_filename)
-		self.sound_chan = snd
-		self.sound_len_seconds = logging.info("sound len is {len}".format(len=snd.get_length() / self.sample_rate))
+		self.sound_snd = swmixer.Sound(self.sound_filename)
+		self.sound_len_seconds = logging.info("sound len is {len}".format(
+			len=self.sound_snd.get_length() / self.sample_rate))
 
 	def _map_tracks_by_rate(self):
 		""" Iterate over audio_folder and get bpm for each track and map songs to BOM
@@ -112,8 +113,12 @@ class AudioController(object):
 		# (TODO: AmirW) we'll need to pre-sample the heartbeat rate at different BPMs (60 BPM - sound lasts a second, 120
 		# sound lasts 0.5 a second
 
+		if self.current_playing_sound is not None:
+			self.current_playing_sound.set_volume(0)
+
 		# Load the correct sound with BPM and repeat until called with another BPM
-		pass
+		self.current_playing_sound = self.sound_snd.play(volume=1.5, loops=60)
+		logging.info("starting playing sound")
 
 	@staticmethod
 	def get_track_bmp(path, params=None):
