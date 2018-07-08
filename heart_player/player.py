@@ -1,3 +1,9 @@
+# WARNING WARNING WARNING - DEFUNCT CODE
+# This code was an experiment to try and get reverb and low-pass filter working
+# using pyaudio stream processing. But, it really doesn't work.
+
+# Leaving it here in case we want to resurrect it later....
+
 import pyaudio
 import time
 import numpy as np
@@ -61,7 +67,12 @@ class Limiter:
 p = pyaudio.PyAudio()
 limiter = Limiter(attack_coeff, release_coeff, delay)
 
+last_piece_len = 128
+last_piece = np.zeros(last_piece_len, dtype=dtype)
+
 def callback(in_data, frame_count, time_info, status):
+    global last_piece
+
     samples = np.fromstring(in_data, dtype=dtype)
 
     # fft = np.fft.fft(samples)
@@ -74,12 +85,14 @@ def callback(in_data, frame_count, time_info, status):
     for i in range(len(samples)):
     	samples[i] = samples[i] * amplification_factor
 
-    # audio_data = [s/float(65536) for s in samples]
-    # filtered_audio_data = butter_lowpass_filter(audio_data, lowpass_cutoff, RATE, order)
+    samples_with_last_piece = np.concatenate(last_piece, samples)
+    audio_data = [s/float(65536) for s in samples_with_last_piece]
+    filtered_audio_data = butter_lowpass_filter(audio_data, lowpass_cutoff, RATE, order)
     # print(min(audio_data), max(audio_data), min(filtered_audio_data), max(filtered_audio_data))
     # limiter.limit(audio_data, 0.8)
-    # out_samples = [int(s*65536) for s in filtered_audio_data]
-    # out_data = np.array(out_samples, dtype=dtype).tostring()
+    out_samples = [int(s*65536) for s in filtered_audio_data[last_piece_len:]]
+    out_data = np.array(out_samples, dtype=dtype).tostring()
+    last_piece = samples[len(samples)-last_piece_len:]
     # for i in range(len(in_samples)):
     #     if in_samples[i] < -3000:
     #         in_samples[i] = -3000
@@ -87,8 +100,19 @@ def callback(in_data, frame_count, time_info, status):
     #         in_samples[i] = 3000
 
     # print(min(in_samples), max(in_samples), min(audio_data), max(audio_data), min(out_samples), max(out_samples))
-    return (samples.tostring(), pyaudio.paContinue)
-    # return (out_data, pyaudio.paContinue)
+    # return (samples.tostring(), pyaudio.paContinue)
+    # biggest_difference_in_samples = 0
+    # biggest_difference_in_out_samples = 0
+    # for i in range(len(samples)):
+    #     if i == 0:
+    #         continue
+    #     if abs(samples[i]-samples[i-1]) > biggest_difference_in_samples:
+    #         biggest_difference_in_samples = abs(samples[i]-samples[i-1])
+    #     if abs(out_samples[i]-out_samples[i-1]) > biggest_difference_in_out_samples:
+    #         biggest_difference_in_out_samples = abs(out_samples[i]-out_samples[i-1])
+    # print(biggest_difference_in_samples, biggest_difference_in_out_samples)
+    print(samples[0], samples[1023], out_samples[100:200], out_samples[1023])
+    return (out_data, pyaudio.paContinue)
 
 stream = p.open(format=p.get_format_from_width(WIDTH),
                 channels=CHANNELS,
