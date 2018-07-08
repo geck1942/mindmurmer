@@ -2,7 +2,7 @@ import logging
 
 from fr0stlib import Flame
 from eegsources import *
-from fr0st.scripts.mindmurmer.sound_controller import AudioController
+from fr0st.scripts.mindmurmer.sound_controller import MindMurmurAudioController
 
 # For running the script as stand alone and not through the fractal app
 if 'flame' not in locals() and 'flame' not in globals():
@@ -20,9 +20,9 @@ if 'large_preview' not in locals() and 'preview' not in globals():
 
 
 class MMEngine:
-	def __init__(self, eeg_source, audio_folder):
+	def __init__(self, eeg_source, audio_folder, heartbeat_folder):
 		self.eeg_source = eeg_source
-		self.audio_controller = AudioController(audio_folder)
+		self.audio_controller = MindMurmurAudioController(audio_folder, heartbeat_folder)
 		self.frame_index = 0
 		self.speed = 1
 		self.channels = 24
@@ -52,7 +52,7 @@ class MMEngine:
 				self.frame_index = 0
 				print("BLINK: new flames generated")
 
-				self.audio_controller.mix_track("mode-we're-going-into")
+				self.audio_controller.mix_track(0)
 
 			dataindex = 0
 			for x in flame.xform:
@@ -140,7 +140,8 @@ class MMEngine:
 # eeg = EEGFromJSONFile('fr0st/scripts/mindmurmer/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
 eeg = EEGFromJSONFile('fr0st/scripts/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 
-audio_folder = "fr0st/scripts/mindmurmer/audio"
+audio_folder = "fr0st/scripts/mindmurmer/sound_controller_demo_tracks"
+heartbeat_folder = "fr0st/scripts/mindmurmer/sound_controller_heartbeats"
 
-engine = MMEngine(eeg, audio_folder)
+engine = MMEngine(eeg, audio_folder, heartbeat_folder)
 engine.start()

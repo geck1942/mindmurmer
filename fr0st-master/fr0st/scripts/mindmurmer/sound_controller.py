@@ -14,56 +14,66 @@ FADEOUT_AMOUNT = 10
 FADEIN_AMOUNT = 300
 
 
-class AudioController(object):
+class MindMurmurAudioController(object):
 	""" Non-blocking Audio controller to mix tracks in a given folder
 
 	NOTE: Currently supporting only tracks with sample rate of 16,000 hz
 
 	TODO(AmirW): make this non blocking :)
 	"""
-	def __init__(self, audio_folder, sound_filename, sample_rate=16000):
-		self._validate_audio_files(audio_folder, sound_filename)
+	def __init__(self, audio_folder, heartbeat_folder, sample_rate=16000):
+		self._validate_audio_files(audio_folder, heartbeat_folder)
 
 		self.audio_folder = audio_folder
-		self.sound_filename = sound_filename
+		self.heartbeat_folder = heartbeat_folder
 		self.sample_rate = sample_rate
 		self.current_playing_track = None
 		self.tracks_to_mode_map = defaultdict(list)
+		self.heartbeats_to_bpm_map = defaultdict(list)
 		self.current_playing_sound = None
 		self.sound_snd = None
 
 		swmixer.init(samplerate=sample_rate, chunksize=1024, stereo=True)
 		swmixer.start()
 
-		self._prep_sound()
-		self._map_tracks_by_rate()
+		self.tracks_to_mode_map = self._map_tracks_by_rate(self.audio_folder)
+		self.heartbeats_to_bpm_map = self._map_tracks_by_rate(self.heartbeat_folder)
 
-	def _validate_audio_files(self, audio_folder, sound_filename):
-		""" Validate "audio_folder" is an actual folder and that "sound_filename" is an actual file
+	def _validate_audio_files(self, audio_folder, heartbeat_folder):
+		""" Validate "audio_folder" and "heartbeat_folder" are an actual folders
 
 		:param audio_folder: path to tracks folder on system
-		:param sound_filename: path to sound file on system
+		:param heartbeat_folder: path to sound file on system
 		"""
 		if not os.path.isdir(audio_folder):
 			raise ValueError("{folder} folder does not exists on system".format(folder=audio_folder))
 
-		if not os.path.isfile(sound_filename):
-			raise ValueError("{sound_filename} file does not exists on system".format(sound_filename=sound_filename))
+		if not os.path.isdir(heartbeat_folder):
+			raise ValueError("{heartbeat_folder} folder does not exists on system".format(
+				heartbeat_folder=heartbeat_folder))
 
 		logging.info("using audio folder: {audio_folder}".format(audio_folder=audio_folder))
+		logging.info("using heartbeat folder: {heartbeat_folder}".format(heartbeat_folder=heartbeat_folder))
 
-	def _prep_sound(self):
-		self.sound_snd = swmixer.Sound(self.sound_filename)
-		self.sound_len_seconds = logging.info("sound len is {len}".format(
-			len=self.sound_snd.get_length() / self.sample_rate))
-
-	def _map_tracks_by_rate(self):
+	def _map_tracks_by_rate(self, tracks_folder):
 		""" Iterate over audio_folder and get bpm for each track and map songs to BOM
+
+		:param tracks_folder: the folder to map
+		:return: a dict of BPM to track
 		"""
-		for track_filename in os.listdir(self.audio_folder):
-			bpm = AudioController.get_track_bmp(os.path.join(self.audio_folder, track_filename))
-			self.tracks_to_mode_map[bpm].append(track_filename)
+		tracks_to_mode_map = defaultdict(list)
+
+		for track_filename in os.listdir(tracks_folder):
+			bpm = MindMurmurAudioController.get_track_bmp(os.path.join(tracks_folder, track_filename))
+
+			if bpm == 0:
+				bpm_from_filename = int(track_filename.split(".")[0].split("_")[-1])
+				bpm = bpm_from_filename
+
+			tracks_to_mode_map[bpm].append(track_filename)
 			logging.info("track \"{track}\" has BPM of: {bpm}".format(track=track_filename, bpm=bpm))
+
+		return tracks_to_mode_map
 
 
 	def _get_track_for_mode(self, mode):
@@ -73,6 +83,7 @@ class AudioController(object):
 
 		:return: track filename matching the mode
 		"""
+		# TODO(AmirW): normalize this
 		return self.tracks_to_mode_map[sorted(self.tracks_to_mode_map.keys())[mode]][0]
 
 	def _mix_track(self, track_filename):
@@ -104,7 +115,7 @@ class AudioController(object):
 		track_filename = self._get_track_for_mode(mode)
 		self._mix_track(track_filename)
 
-	def play_sound_with_bpm(self, bpm):
+	def play_heartbeat_with_bpm(self, bpm):
 		""" Play with "bpm" beats per minute by calling starting a self calling timer
 
 		:param bpm:
@@ -117,8 +128,13 @@ class AudioController(object):
 			self.current_playing_sound.set_volume(0)
 
 		# Load the correct sound with BPM and repeat until called with another BPM
-		self.current_playing_sound = self.sound_snd.play(volume=1.5, loops=60)
-		logging.info("starting playing sound")
+		heartbeat_track = self.heartbeats_to_bpm_map.get(bpm, [None])[0]
+		if heartbeat_track is None:
+			raise ValueError("we don't have that rate of heartbeat ({!s})".format(bpm))
+
+		sound_snd = swmixer.Sound(os.path.join(self.heartbeat_folder, heartbeat_track))
+		self.current_playing_sound = sound_snd.play(volume=1.5, loops=60 * 10)
+		logging.info("starting playing heartbeat at {bpm} BPM".format(bpm=bpm))
 
 	@staticmethod
 	def get_track_bmp(path, params=None):
@@ -180,7 +196,7 @@ class AudioController(object):
 				bpms = 60. / diff(beats)
 				return median(bpms)
 			else:
-				print("not enough beats found in {:s}".format(path))
+				logging.info("not enough beats found in {:s}".format(path))
 				return 0
 
 		return beats_to_bpm(beats, path)
@@ -274,7 +290,7 @@ class AudioController(object):
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Process some integers.')
 	parser.add_argument('--audio_folder', dest='audio_folder', help="The folder with the tracks")
-	parser.add_argument('--sound_filename', dest='sound_filename', help="The filename of the base sound")
+	parser.add_argument('--heartbeat_folder', dest='heartbeat_folder', help="The folder of the heartbeats")
 	parser.add_argument('--create_multi_tempo_versions', dest='create_multi_tempo_versions', action='store_true',
 						default=False, help='create multi tempo versions of each track in --audio_folder')
 
@@ -284,21 +300,40 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-	ac = AudioController(args.audio_folder, args.sound_filename)
+	ac = MindMurmurAudioController(args.audio_folder, args.heartbeat_folder)
 
 	if args.create_multi_tempo_versions:
-		# (TODO: AmirW): this ability might not be needed, to be resolved.
-		pass
+		for bpm in range(10, 185, 5):
+			scale = bpm / 60.0
+			output_filename = "{filename}_{bpm}.{file_suffix}".format(
+				bpm=bpm, filename=args.sound_filename.split(".")[0], file_suffix=args.sound_filename.split(".")[-1])
+			logging.info("rendering sound with bpm: {!s}".format(bpm))
+			MindMurmurAudioController.alter_track_tempo(args.sound_filename, output_filename, scale)
+	else:
+		ac.play_heartbeat_with_bpm(60)
 
-	ac.play_sound_with_bpm(60)
+		logging.info("mixing in track 1")
+		ac.mix_track(0)
+		logging.info("mixed in track 1")
 
-	logging.info("mixing in track 1")
-	ac.mix_track(0)
-	logging.info("mixed in track 1")
-	time.sleep(10)
+		time.sleep(5)
+		logging.info("loading HB with 80 BPM")
+		ac.play_heartbeat_with_bpm(80)
 
-	logging.info("mixing in track 2")
-	ac.mix_track(1)
-	logging.info("mixed in track 2")
+		time.sleep(5)
 
-	time.sleep(10)
+		logging.info("mixing in track 2")
+		ac.mix_track(1)
+		logging.info("mixed in track 2")
+
+		time.sleep(5)
+
+		logging.info("loading HB with 120 BPM")
+		ac.play_heartbeat_with_bpm(120)
+
+		time.sleep(5)
+
+		logging.info("loading HB with 60 BPM")
+		ac.play_heartbeat_with_bpm(60)
+
+		time.sleep(5)
