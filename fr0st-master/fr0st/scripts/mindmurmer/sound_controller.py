@@ -84,7 +84,11 @@ class MindMurmurAudioController(object):
 		:return: track filename matching the mode
 		"""
 		# TODO(AmirW): normalize this
-		return self.tracks_to_mode_map[sorted(self.tracks_to_mode_map.keys())[mode]][0]
+		if 0 <= mode < len(self.tracks_to_mode_map.keys()):
+			sorted_keys = sorted(self.tracks_to_mode_map.keys())
+			return self.tracks_to_mode_map[sorted_keys[mode]][0]
+		else:
+			raise ValueError("{mode} mode is not in the audio folder".format(mode=mode))
 
 	def _mix_track(self, track_filename):
 		""" Mix a track with path "track filename" to play. If another track is playing, fade it out, and fade this in
@@ -311,6 +315,7 @@ if __name__ == "__main__":
 			MindMurmurAudioController.alter_track_tempo(args.sound_filename, output_filename, scale)
 	else:
 		ac.play_heartbeat_with_bpm(60)
+		time.sleep(5)
 
 		logging.info("mixing in track 1")
 		ac.mix_track(0)
