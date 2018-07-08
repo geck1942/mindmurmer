@@ -102,7 +102,7 @@ class MindMurmurAudioController(object):
 			logging.info("fading out current track to end in {fadeout} seconds".format(fadeout=FADEOUT_AMOUNT))
 			self.current_playing_track.set_volume(0, fadetime=self.sample_rate * FADEOUT_AMOUNT)
 			fadein_time = self.sample_rate * FADEIN_AMOUNT
-			logging.info("faded")
+			logging.info("set fade")
 
 		# fade in of one second
 		snd = swmixer.Sound(track_full_path)
@@ -137,7 +137,7 @@ class MindMurmurAudioController(object):
 			raise ValueError("we don't have that rate of heartbeat ({!s})".format(bpm))
 
 		sound_snd = swmixer.Sound(os.path.join(self.heartbeat_folder, heartbeat_track))
-		self.current_playing_sound = sound_snd.play(volume=1.5, loops=60 * 10)
+		self.current_playing_sound = sound_snd.play(volume=1.3, loops=60 * 10)
 		logging.info("starting playing heartbeat at {bpm} BPM".format(bpm=bpm))
 
 	@staticmethod
@@ -314,7 +314,8 @@ if __name__ == "__main__":
 			logging.info("rendering sound with bpm: {!s}".format(bpm))
 			MindMurmurAudioController.alter_track_tempo(args.sound_filename, output_filename, scale)
 	else:
-		ac.play_heartbeat_with_bpm(60)
+		logging.info("loading HB with 45 BPM")
+		ac.play_heartbeat_with_bpm(45)
 		time.sleep(5)
 
 		logging.info("mixing in track 1")
@@ -322,8 +323,8 @@ if __name__ == "__main__":
 		logging.info("mixed in track 1")
 
 		time.sleep(5)
-		logging.info("loading HB with 80 BPM")
-		ac.play_heartbeat_with_bpm(80)
+		logging.info("loading HB with 60 BPM")
+		ac.play_heartbeat_with_bpm(60)
 
 		time.sleep(5)
 
@@ -333,12 +334,16 @@ if __name__ == "__main__":
 
 		time.sleep(5)
 
-		logging.info("loading HB with 120 BPM")
-		ac.play_heartbeat_with_bpm(120)
+		logging.info("loading HB with 70 BPM")
+		ac.play_heartbeat_with_bpm(70)
 
 		time.sleep(5)
+
+		logging.info("mixing in track 1")
+		ac.mix_track(0)
+		logging.info("mixed in track 1")
 
 		logging.info("loading HB with 60 BPM")
 		ac.play_heartbeat_with_bpm(60)
 
-		time.sleep(5)
+		time.sleep(10)
