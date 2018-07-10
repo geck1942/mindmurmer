@@ -42,6 +42,9 @@ def animation_preview(flames, repeat=True):
         fr0stlib.preview(f)
         fr0stlib.show_status("previewing %s" %f)
 
+def get_scriptpath():
+    import os
+    return os.path.dirname(os.path.realpath(__file__))
                
 # static math methods:
 def reduceAndClamp(inrange_value, inrange_min, inrange_max, outrange_min = 0, outrange_max = 1, overflow = False):

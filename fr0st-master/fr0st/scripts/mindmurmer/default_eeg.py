@@ -3,6 +3,7 @@ import time
 
 from fr0stlib import Flame
 from fr0stlib.render import save_image
+from utils import get_scriptpath
 
 if 'flame' not in locals() and 'flame' not in globals():
     print "generating random flame"
@@ -17,9 +18,8 @@ import audiosources
 from eegsources import * 
 
 class MMEngine:
-    def __init__(self, eeg_source, audio_source, gui):
+    def __init__(self, eeg_source, gui):
         self.eeg_source = eeg_source
-        self.audio_source = audio_source
         self.frame_index = 0
         self.speed = 1
         self.channels = 24
@@ -205,12 +205,14 @@ def get_audio_source(filepath):
     return None
 
 # RUN
-audio = get_audio_source("fr0st/scripts/mindmurmur/audio/midnightstar_crop.wav")
-eeg = EEGDummy()
+# 1 - Dummy DATA
+#eeg = EEGDummy()
+# audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
 # eeg = EEGFromAudio(audio)
-#eeg = EEGFromJSONFile(dir_path + '/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
-#eeg = EEGFromJSONFile(dir_path + '/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
+# 2 - DATA from json file
+#eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmur/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
+eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 
 #_self is some hidden hack from fr0st that refers to the gui MainWindow
-engine = MMEngine(eeg, audio, _self)
+engine = MMEngine(eeg, _self)
 engine.start()
