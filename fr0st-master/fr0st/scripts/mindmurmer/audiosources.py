@@ -10,10 +10,10 @@ chunksize = 1024
 SAMPLE_MAX = 32767
 SAMPLE_MIN = -(SAMPLE_MAX + 1)
 SAMPLE_RATE = 16000 # [Hz]
-NYQUIST = SAMPLE_RATE / 2 
+NYQUIST = SAMPLE_RATE / 2
 SAMPLE_SIZE = 16 # [bit]
 CHANNEL_COUNT = 1
-BUFFER_SIZE = 5000 
+BUFFER_SIZE = 5000
 
 MEDIASAMPLE_RATE = 44000 # [Hz]
 MEDIACHANNEL_COUNT = 2
@@ -24,7 +24,7 @@ class AudioSource(object):
 
     def get_sample_rate(self):
         return MEDIASAMPLE_RATE
-        
+
     def get_sample_max(self):
         return SAMPLE_MAX
 
@@ -70,10 +70,10 @@ class Microphone(AudioSource):
         self.p = pyaudio.PyAudio()
 
         self.out_stream = self.p.open(
-                        format = pyaudio.paInt16,
-                        channels = CHANNEL_COUNT,
-                        rate = self.get_sample_rate(),
-                        output = True)
+            format = pyaudio.paInt16,
+            channels = CHANNEL_COUNT,
+            rate = self.get_sample_rate(),
+            output = True)
         self.mic_stream = self.p.open(format = pyaudio.paInt16,
                                       channels = CHANNEL_COUNT,
                                       rate = self.get_sample_rate(),
@@ -93,7 +93,7 @@ class Microphone(AudioSource):
         data = np.fromstring(audio_source_data, 'int16').astype(float)
         if len(data):
             return data
-            
+
     def get_sample_rate(self):
         return SAMPLE_RATE
 
@@ -101,3 +101,29 @@ class Microphone(AudioSource):
         self.out_stream.close()
         self.mic_stream.close()
         self.p.terminate()
+
+# static audio source method:
+def get_audio_source(filepath):
+    print('Get Audio source')
+    try:
+        # record Microphone with Pyaudio
+        print('Recording Microphone with Pyaudio')
+        mic = Microphone()
+        if (mic is not None):
+            print('microphone is OK')
+            return mic
+
+    except Exception as mic_ex:
+        print('Could not record Microphone with Pyaudio: ' + str(mic_ex))
+        try:
+            # read test .wav with Pyaudio
+            print('Reading test media file')
+            media = MediaFile(filepath)
+            if (media is not None):
+                print('media file OK')
+                return media
+
+        except Exception as file_ex:
+            print('Could not read test media file: ' + str(file_ex))
+
+    return None

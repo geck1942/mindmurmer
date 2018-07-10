@@ -3,23 +3,30 @@ import time
 
 from fr0stlib import Flame
 from fr0stlib.render import save_image
+from fr0st.scripts.mindmurmer.sound_controller import MindMurmurAudioController
+
 from utils import get_scriptpath
+from eegsources import *
 
+# For running the script as stand alone and not through the fractal app
 if 'flame' not in locals() and 'flame' not in globals():
-    print "generating random flame"
-    flame = Flame()
+	print "generating random flame"
+	flame = Flame()
+	flame.add_xform()
 
-class EEGSource:
-    def __init__(self, channels):
-        self.channelscount = channels
-        self.values = [0.5] * self.channelscount
 
-import audiosources
-from eegsources import * 
+if 'large_preview' not in locals() and 'preview' not in globals():
+	def DoNothing():
+		pass
+
+	large_preview = DoNothing
+	preview = DoNothing
+
 
 class MMEngine:
-    def __init__(self, eeg_source, gui):
+    def __init__(self, eeg_source, gui, audio_folder, heartbeat_folder):
         self.eeg_source = eeg_source
+        self.audio_controller = MindMurmurAudioController(audio_folder, heartbeat_folder)
         self.frame_index = 0
         self.speed = 1
         self.channels = 24
@@ -55,8 +62,8 @@ class MMEngine:
             # get eeg data as [] from ext. source
             eegdata = self.eeg_source.read_data()
             #if(self.frame_index % 10 == 2) : print(str(eegdata.waves))
-            # FLAME UPDATE (at least 25 frames apart)
-            if(eegdata.blink == 1 and self.frame_index > 2500):
+            # FLAME UPDATE (at least 125 frames apart)
+            if(eegdata.blink == 1 and self.frame_index > 125):
                 self.NewFlame()
                 self.frame_index = 0
                 print("BLINK: new flames generated")
@@ -68,6 +75,8 @@ class MMEngine:
 
                 # update colors
                 #calculate_colors(flame.xform)
+                print("BLINK: mix track")
+                self.audio_controller.mix_track(0)
 
             dataindex = 0
             for x in flame.xform:
@@ -96,7 +105,6 @@ class MMEngine:
 
     # Generate a whole new Flame
     def NewFlame(self):
-        
         # if(not flame.final is None):
         #     flame.final.delete()
         # l = len(flame.xform)
@@ -107,7 +115,6 @@ class MMEngine:
         # flame.xform[-1].delete()
         #flame.xform =[]
         
-        ran = random.uniform
         # based on julia lines:
         # Form 1: BASE
         if(len(flame.xform) == 0):
@@ -126,31 +133,35 @@ class MMEngine:
         x1.rotate(random.random() * 360)
 
         # Form 2: JULIA TRANSFORM
-        if(len(flame.xform) > 1):
+        if(len(flame.xform) <= 1):
+            x2 = flame.add_xform()
+        else:
             x2 = flame.xform[1]
-            # x2.coefs = [0.5, 0,    # x
-            #             0, 0.5,    # y
-            #             ran(-0.5, 0.5), ran(-0.5, 0.5) ]    # o
-            x2.weight = 0.5
-            # x2.color = random.random() # [0 : 1]
-            x2.color_speed = 0.5
-            x2.julian = 0.7 + random.random() * 0.3 # [0.7 : 1]
-            x2.animate = 1
-            x2.rotate(random.random() * 360)
+        # x2.coefs = [0.5, 0,    # x
+        #             0, 0.5,    # y
+        #             ran(-0.5, 0.5), ran(-0.5, 0.5) ]    # o
+        x2.weight = 0.5
+        # x2.color = random.random() # [0 : 1]
+        x2.color_speed = 0.5
+        x2.julian = 0.7 + random.random() * 0.3 # [0.7 : 1]
+        x2.animate = 1
+        x2.rotate(random.random() * 360)
 
         # Form 3: LINE
-        if(len(flame.xform) > 2):
+        if(len(flame.xform) <= 2):
+            x3 = flame.add_xform()
+        else:
             x3 = flame.xform[2]
-            # x3.coefs = [ran(1, 3), 0,    # x
-            #             0, 0,    # y
-            #             ran(-1.0, 1.0), ran(-1.0, 1.0) ]    # o
-            x3.weight = 0.25
-            # x3.color = random.random() # [0 : 1]
-            x3.color_speed = 0.5
-            x3.cross = 0.5 + random.random() * 1.5 # [0.5 : 2]
-            x3.julian = 0.2 + random.random() * 0.8 # [0.2 : 1]
-            x3.animate = 1
-            x3.rotate(random.random() * 360)
+        # x3.coefs = [ran(1, 3), 0,    # x
+        #             0, 0,    # y
+        #             ran(-1.0, 1.0), ran(-1.0, 1.0) ]    # o
+        x3.weight = 0.25
+        # x3.color = random.random() # [0 : 1]
+        x3.color_speed = 0.5
+        x3.cross = 0.5 + random.random() * 1.5 # [0.5 : 2]
+        x3.julian = 0.2 + random.random() * 0.8 # [0.2 : 1]
+        x3.animate = 1
+        x3.rotate(random.random() * 360)
 
         # Form 4: FLOWERS
         if(len(flame.xform) > 3):
@@ -178,33 +189,9 @@ class MMEngine:
             x5.linear = 0.0
             x5.rotate(random.random() * 360)
 
-# static audio source method:
-def get_audio_source(filepath):
-    print('Get Audio source')
-    try:
-        # record Microphone with Pyaudio    
-        print('Recording Microphone with Pyaudio')
-        mic = audiosources.Microphone()
-        if (mic is not None):
-            print('microphone is OK')            
-            return mic
-
-    except Exception as mic_ex:
-        print('Could not record Microphone with Pyaudio: ' + str(mic_ex))
-        try:
-            # read test .wav with Pyaudio    
-            print('Reading test media file')
-            media = audiosources.MediaFile(filepath)
-            if (media is not None):
-                print('media file OK')
-                return media
-
-        except Exception as file_ex:
-            print('Could not read test media file: ' + str(file_ex))
-    
-    return None
-
 # RUN
+audio_folder = get_scriptpath() + "/mindmurmer/sound_controller_demo_tracks"
+heartbeat_folder = get_scriptpath() + "/mindmurmer/sound_controller_heartbeats"
 # 1 - Dummy DATA
 #eeg = EEGDummy()
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
@@ -214,5 +201,6 @@ def get_audio_source(filepath):
 eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 
 #_self is some hidden hack from fr0st that refers to the gui MainWindow
-engine = MMEngine(eeg, _self)
+engine = MMEngine(eeg, _self, audio_folder, heartbeat_folder)
+
 engine.start()

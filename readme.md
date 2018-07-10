@@ -11,6 +11,10 @@ the following libraries are required:
 - **PySide**
 - **wxPython** (wx 3.0, not the 4.0)
 - **wave**
+- **swmixer**
+- **aubio** (on windows, Microsoft Visual C++ 9.0 is required. Get it from http://aka.ms/vcpython27)
+
+
 
 ## the fr0st folder
 
