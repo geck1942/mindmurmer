@@ -9,86 +9,87 @@ from collections import defaultdict
 from aubio import source, sink, pvoc, cvec, tempo, unwrap2pi, float_type
 from numpy import median, diff
 
-# I cannot figure out the scale of these, not seconds.. these values seem right
-FADEOUT_AMOUNT = 10
-FADEIN_AMOUNT = 300
 
-
-class MindMurmurAudioController(object):
-	""" Non-blocking Audio controller to mix tracks in a given folder
+class MindMurmurHeartbeatAudioController(object):
+	""" Non-blocking Audio controller to mix tracks and play heartbeat sounds according to input heartbeat rate
 
 	NOTE: Currently supporting only tracks with sample rate of 16,000 hz
-
-	TODO(AmirW): make this non blocking :)
 	"""
-	def __init__(self, audio_folder, heartbeat_folder, sample_rate=16000):
-		self._validate_audio_files(audio_folder, heartbeat_folder)
+	# I cannot figure out the scale of these, not seconds.. these values seem right
+	FADEOUT_AMOUNT = 10
+	FADEIN_AMOUNT = 300
+	HEARTBEAT_SOUND_FILENAME = "heartbeat.wav"
+	STAGE_NAME_SPLITTER = "::"
+	TRACKS_KEY = "tracks"
+	HEARTBEAT_SOUND_FILENAME_KEY = "heartbeat_sound_filename"
+
+	def __init__(self, audio_folder, sample_rate=16000):
+		"""
+		:param audio_folder: audio folder with sub folders, each named by start rate and end rate (e.g, 20_40, 41_60).
+							 Each folder represents a meditation stage and should contain any tracks
+							 for that stage and a heartbeat.wav file
+		:param sample_rate: the sample rate for the sounds
+		"""
 
 		self.audio_folder = audio_folder
-		self.heartbeat_folder = heartbeat_folder
 		self.sample_rate = sample_rate
-		self.current_playing_track = None
-		self.tracks_to_mode_map = defaultdict(list)
-		self.heartbeats_to_bpm_map = defaultdict(list)
-		self.current_playing_sound = None
-		self.sound_snd = None
+		self.current_playing_track_filename = None
+		self.playing_tracks = []
+		self.playing_heartbeats = []
+		self.tracks_by_stage = defaultdict(list)
+
+		self._validate_audio_files_and_prep_data()
 
 		swmixer.init(samplerate=sample_rate, chunksize=1024, stereo=True)
 		swmixer.start()
 
-		self.tracks_to_mode_map = self._map_tracks_by_rate(self.audio_folder)
-		self.heartbeats_to_bpm_map = self._map_tracks_by_rate(self.heartbeat_folder)
+	def _validate_audio_files_and_prep_data(self):
+		""" Validate "audio_folder" and "heartbeat_filename" are an actual folders
 
-	def _validate_audio_files(self, audio_folder, heartbeat_folder):
-		""" Validate "audio_folder" and "heartbeat_folder" are an actual folders
-
-		:param audio_folder: path to tracks folder on system
-		:param heartbeat_folder: path to sound file on system
 		"""
-		if not os.path.isdir(audio_folder):
-			raise ValueError("{folder} folder does not exists on system".format(folder=audio_folder))
+		if not os.path.isdir(self.audio_folder):
+			raise ValueError("{folder} folder does not exists on system".format(folder=self.audio_folder))
 
-		if not os.path.isdir(heartbeat_folder):
-			raise ValueError("{heartbeat_folder} folder does not exists on system".format(
-				heartbeat_folder=heartbeat_folder))
+		for dir_name in os.listdir(self.audio_folder):
+			full_dir_path = os.path.join(self.audio_folder, dir_name)
 
-		logging.info("using audio folder: {audio_folder}".format(audio_folder=audio_folder))
-		logging.info("using heartbeat folder: {heartbeat_folder}".format(heartbeat_folder=heartbeat_folder))
+			if not os.path.isdir(full_dir_path):
+				raise ValueError("{dir_name} is not a folder".format(dir_name=dir_name))
 
-	def _map_tracks_by_rate(self, tracks_folder):
-		""" Iterate over audio_folder and get bpm for each track and map songs to BOM
+			try:
+				stage_thresholds = map(int, dir_name.split("_"))
+			except:
+				raise ValueError("{dir_name} is not a legal name".format(dir_name=dir_name))
 
-		:param tracks_folder: the folder to map
-		:return: a dict of BPM to track
-		"""
-		tracks_to_mode_map = defaultdict(list)
+			start_rate = min(stage_thresholds)
+			end_rate = max(stage_thresholds)
+			tracks = []
+			heartbeat_sound_filename = None
 
-		for track_filename in os.listdir(tracks_folder):
-			bpm = MindMurmurAudioController.get_track_bmp(os.path.join(tracks_folder, track_filename))
+			for filename in os.listdir(full_dir_path):
+				full_filename = os.path.join(full_dir_path, filename)
 
-			if bpm == 0:
-				bpm_from_filename = int(track_filename.split(".")[0].split("_")[-1])
-				bpm = bpm_from_filename
+				if not os.path.isfile(full_filename):
+					raise ValueError("{filename} is not a file".format(filename=filename))
+				else:
+					if filename == self.HEARTBEAT_SOUND_FILENAME:
+						heartbeat_sound_filename = full_filename
+					else:
+						tracks.append(full_filename)
 
-			tracks_to_mode_map[bpm].append(track_filename)
-			logging.info("track \"{track}\" has BPM of: {bpm}".format(track=track_filename, bpm=bpm))
+			if heartbeat_sound_filename is None or len(tracks) == 0:
+				raise ValueError(("{dir_name} folder doesn't contain {heartbeat_sounds_filename} "
+								  "or at least one track").format(
+					dir_name=dir_name, heartbeat_sounds_filename=self.HEARTBEAT_SOUND_FILENAME))
+			else:
+				logging.info("matched stage from rate {start_rate} to {end_rate}".format(start_rate=start_rate,
+																						 end_rate=end_rate))
+				self.tracks_by_stage[self._get_meditation_stage_key(start_rate, end_rate)] = {
+					self.HEARTBEAT_SOUND_FILENAME_KEY: heartbeat_sound_filename,
+					self.TRACKS_KEY: tracks
+				}
 
-		return tracks_to_mode_map
-
-
-	def _get_track_for_mode(self, mode):
-		""" Get track from folder by normalizing mode over list of BPMs
-
-		:param mode: a number between 0 and 5, 0 being the lightest and 5 the heaviest
-
-		:return: track filename matching the mode
-		"""
-		# TODO(AmirW): normalize this
-		if 0 <= mode < len(self.tracks_to_mode_map.keys()):
-			sorted_keys = sorted(self.tracks_to_mode_map.keys())
-			return self.tracks_to_mode_map[sorted_keys[mode]][0]
-		else:
-			raise ValueError("{mode} mode is not in the audio folder".format(mode=mode))
+		logging.info("using audio folder: {audio_folder}".format(audio_folder=self.audio_folder))
 
 	def _mix_track(self, track_filename):
 		""" Mix a track with path "track filename" to play. If another track is playing, fade it out, and fade this in
@@ -96,49 +97,89 @@ class MindMurmurAudioController(object):
 		:param track_filename: track filename to fade in
 		"""
 		track_full_path = os.path.join(self.audio_folder, track_filename)
-		fadein_time = 0
+		if self.current_playing_track_filename == track_full_path:
+			logging.info("track playing is the same as requested, ignoring")
+		else:
+			fadein_time = 0
 
-		if self.current_playing_track is not None:
-			logging.info("fading out current track to end in {fadeout} seconds".format(fadeout=FADEOUT_AMOUNT))
-			self.current_playing_track.set_volume(0, fadetime=self.sample_rate * FADEOUT_AMOUNT)
-			fadein_time = self.sample_rate * FADEIN_AMOUNT
-			logging.info("set fade")
+			if len(self.playing_tracks) > 0:
+				logging.info("fading out current track to end in {fadeout} seconds".format(fadeout=self.FADEOUT_AMOUNT))
+				self.playing_tracks[-1].set_volume(0, fadetime=self.sample_rate * self.FADEOUT_AMOUNT)
+				fadein_time = self.sample_rate * self.FADEIN_AMOUNT
+				logging.info("set fade")
 
-		# fade in of one second
-		snd = swmixer.Sound(track_full_path)
-		chan = snd.play(fadein=fadein_time)
-		self.current_playing_track = chan
-		logging.info("starting playing {track}".format(track=track_filename))
+			# fade in of one second
+			track_sound = swmixer.Sound(track_full_path)
+			track_channel = track_sound.play(fadein=fadein_time)
+			self.playing_tracks.append(track_channel)
+			self.current_playing_track_filename = track_filename
+			logging.info("starting playing {track}".format(track=track_filename))
 
-	def mix_track(self, mode):
-		""" Gracefully mix in a track mapped to "mode". If another track is already playing - fade it out
+	def _play_heartbeat(self, heartbeat_track):
+		""" Play "heartbeat_track"
 
-		:param mode: a target value to choose a track by
+		:param heartbeat_track: the filename on system to play
 		"""
-		# fetch the track mapped to "mode"
-		track_filename = self._get_track_for_mode(mode)
-		self._mix_track(track_filename)
+		heartbeat_sound = swmixer.Sound(heartbeat_track)
+		heartbeat_channel = heartbeat_sound.play(volume=1.3)
+		self.playing_heartbeats.append(heartbeat_channel)
+		logging.info("starting playing heartbeat")
 
-	def play_heartbeat_with_bpm(self, bpm):
-		""" Play with "bpm" beats per minute by calling starting a self calling timer
+	def _get_meditation_stage_key(self, start_rate, end_rate):
+		""" Get a stage str key symbolizing the start and end rate of the stage
 
-		:param bpm:
-		:return:
+		:param start_rate: the rate
+		:param end_rate:
+		:return: str key symbolizing the start and end rate of the stage
 		"""
-		# (TODO: AmirW) we'll need to pre-sample the heartbeat rate at different BPMs (60 BPM - sound lasts a second, 120
-		# sound lasts 0.5 a second
+		return "{start_rate}{stage_name_splitter}{end_rate}".format(stage_name_splitter=self.STAGE_NAME_SPLITTER,
+																	start_rate=start_rate, end_rate=end_rate)
 
-		if self.current_playing_sound is not None:
-			self.current_playing_sound.set_volume(0)
+	def _get_stage_rates_by_key(self, stage_key):
+		""" get start and end rate from stage key
 
-		# Load the correct sound with BPM and repeat until called with another BPM
-		heartbeat_track = self.heartbeats_to_bpm_map.get(bpm, [None])[0]
-		if heartbeat_track is None:
-			raise ValueError("we don't have that rate of heartbeat ({!s})".format(bpm))
+		:param stage_key:
+		:return: tuple of start and end rate
+		"""
+		return sorted(map(int, stage_key.split(self.STAGE_NAME_SPLITTER)))
 
-		sound_snd = swmixer.Sound(os.path.join(self.heartbeat_folder, heartbeat_track))
-		self.current_playing_sound = sound_snd.play(volume=1.3, loops=60 * 10)
-		logging.info("starting playing heartbeat at {bpm} BPM".format(bpm=bpm))
+	def _get_meditation_stage_dat_for_rate(self, rate):
+		""" get the correct mediation stage data for rate
+
+		:param rate: the rate to get the stage for
+		:return: a dict of the meditation stage data with audio tracks
+		"""
+		sorted_stage_keys = sorted(self.tracks_by_stage.keys())
+
+		for meditation_stage in sorted_stage_keys:
+			start_rate, end_rate = self._get_stage_rates_by_key(meditation_stage)
+
+			if start_rate <= rate <= end_rate:
+				return self.tracks_by_stage[meditation_stage]
+
+		if rate < self._get_stage_rates_by_key(sorted_stage_keys[0])[0]:
+			logging.info("rate lower than lowest stage, returning it")
+			return self.tracks_by_stage[sorted_stage_keys[0]]
+		if rate > self._get_stage_rates_by_key(sorted_stage_keys[-1])[1]:
+			logging.info("rate higher than highest stage, returning it")
+			return self.tracks_by_stage[sorted_stage_keys[-1]]
+
+		raise ValueError("Couldn't find any stage!")
+
+	def stop_all_sounds(self):
+		for track in self.playing_tracks + self.playing_heartbeats:
+			if not track.done:
+				track.stop()
+
+	def set_heart_rate(self, rate):
+		""" trigger sounds for given "rate"
+
+		:param rate: the rate to trigger sounds for
+		"""
+		stage_data = self._get_meditation_stage_dat_for_rate(rate)
+		# TODO(AmirW): what happens if we have more than one track per stage?
+		self._mix_track(stage_data[self.TRACKS_KEY][0])
+		self._play_heartbeat(stage_data[self.HEARTBEAT_SOUND_FILENAME_KEY])
 
 	@staticmethod
 	def get_track_bmp(path, params=None):
@@ -154,10 +195,10 @@ class MindMurmurAudioController(object):
 
 		if 'mode' in params:
 			if params.mode in ['super-fast']:
-			# super fast
+				# super fast
 				sample_rate, win_s, hop_s = 4000, 128, 64
 			elif params.mode in ['fast']:
-			# fast
+				# fast
 				sample_rate, win_s, hop_s = 8000, 512, 128
 			elif params.mode in ['default']:
 				pass
@@ -294,7 +335,6 @@ class MindMurmurAudioController(object):
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Process some integers.')
 	parser.add_argument('--audio_folder', dest='audio_folder', help="The folder with the tracks")
-	parser.add_argument('--heartbeat_folder', dest='heartbeat_folder', help="The folder of the heartbeats")
 	parser.add_argument('--create_multi_tempo_versions', dest='create_multi_tempo_versions', action='store_true',
 						default=False, help='create multi tempo versions of each track in --audio_folder')
 
@@ -304,7 +344,7 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-	ac = MindMurmurAudioController(args.audio_folder, args.heartbeat_folder)
+	ac = MindMurmurHeartbeatAudioController(args.audio_folder)
 
 	if args.create_multi_tempo_versions:
 		for bpm in range(10, 185, 5):
@@ -312,38 +352,29 @@ if __name__ == "__main__":
 			output_filename = "{filename}_{bpm}.{file_suffix}".format(
 				bpm=bpm, filename=args.sound_filename.split(".")[0], file_suffix=args.sound_filename.split(".")[-1])
 			logging.info("rendering sound with bpm: {!s}".format(bpm))
-			MindMurmurAudioController.alter_track_tempo(args.sound_filename, output_filename, scale)
+			MindMurmurHeartbeatAudioController.alter_track_tempo(args.sound_filename, output_filename, scale)
 	else:
-		logging.info("loading HB with 45 BPM")
-		ac.play_heartbeat_with_bpm(45)
-		time.sleep(5)
+		logging.info("set HB to 5 BPM, should get the first stage")
+		ac.set_heart_rate(5)
+		time.sleep(1)
 
-		logging.info("mixing in track 1")
-		ac.mix_track(0)
-		logging.info("mixed in track 1")
+		logging.info("set HB to 900 BPM, should get the last stage")
+		ac.set_heart_rate(900)
+		time.sleep(1)
 
-		time.sleep(5)
-		logging.info("loading HB with 60 BPM")
-		ac.play_heartbeat_with_bpm(60)
+		logging.info("stopping all sounds")
+		ac.stop_all_sounds()
 
-		time.sleep(5)
+		for i in range(10):
+			logging.info("set HB to 45 BPM")
+			ac.set_heart_rate(45)
+			time.sleep(1)
+			logging.info("done setting HB with 45 BPM")
 
-		logging.info("mixing in track 2")
-		ac.mix_track(1)
-		logging.info("mixed in track 2")
-
-		time.sleep(5)
-
-		logging.info("loading HB with 70 BPM")
-		ac.play_heartbeat_with_bpm(70)
-
-		time.sleep(5)
-
-		logging.info("mixing in track 1")
-		ac.mix_track(0)
-		logging.info("mixed in track 1")
-
-		logging.info("loading HB with 60 BPM")
-		ac.play_heartbeat_with_bpm(60)
+		for i in range(10):
+			logging.info("set HB to 70 BPM")
+			ac.set_heart_rate(70)
+			time.sleep(1)
+			logging.info("done setting HB with 70 BPM")
 
 		time.sleep(10)

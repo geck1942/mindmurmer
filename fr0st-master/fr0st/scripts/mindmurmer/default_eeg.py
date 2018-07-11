@@ -3,7 +3,7 @@ import time
 
 from fr0stlib import Flame
 from fr0stlib.render import save_image
-from fr0st.scripts.mindmurmer.sound_controller import MindMurmurAudioController
+from fr0st.scripts.mindmurmer.sound_controller import MindMurmurHeartbeatAudioController
 
 from utils import get_scriptpath
 from eegsources import *
@@ -24,9 +24,9 @@ if 'large_preview' not in locals() and 'preview' not in globals():
 
 
 class MMEngine:
-    def __init__(self, eeg_source, gui, audio_folder, heartbeat_folder):
+    def __init__(self, eeg_source, gui, audio_folder):
         self.eeg_source = eeg_source
-        self.audio_controller = MindMurmurAudioController(audio_folder, heartbeat_folder)
+        self.audio_controller = MindMurmurHeartbeatAudioController(audio_folder)
         self.frame_index = 0
         self.speed = 1
         self.channels = 24
@@ -75,8 +75,6 @@ class MMEngine:
 
                 # update colors
                 #calculate_colors(flame.xform)
-                print("BLINK: mix track")
-                self.audio_controller.mix_track(0)
 
             dataindex = 0
             for x in flame.xform:
@@ -191,7 +189,6 @@ class MMEngine:
 
 # RUN
 audio_folder = get_scriptpath() + "/mindmurmer/sound_controller_demo_tracks"
-heartbeat_folder = get_scriptpath() + "/mindmurmer/sound_controller_heartbeats"
 # 1 - Dummy DATA
 #eeg = EEGDummy()
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
@@ -201,6 +198,6 @@ heartbeat_folder = get_scriptpath() + "/mindmurmer/sound_controller_heartbeats"
 eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 
 #_self is some hidden hack from fr0st that refers to the gui MainWindow
-engine = MMEngine(eeg, _self, audio_folder, heartbeat_folder)
+engine = MMEngine(eeg, _self, audio_folder)
 
 engine.start()
