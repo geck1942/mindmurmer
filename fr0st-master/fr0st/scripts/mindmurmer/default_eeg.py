@@ -36,23 +36,25 @@ class MMEngine:
 
     def start(self):
         play = True
+        self.resetRendering() 
         while play:
             t0 = time.clock()
-            play = self.render()
-            # animate wireframe window
-            #preview()
-            #self.gui.image.RenderPreview()
 
-            # animate preview window
-            self.gui.previewframe.RenderPreview()
+            # animate preview window if renderer is Idling
+            if(self.gui.previewframe.rendering == False):
+                play = self.render()
+                # animate wireframe window
+                #preview()
+                self.gui.previewframe.RenderPreview()
 
-            # count frame number
-            show_status("render frame: %s" %(self.frame_index))
-            self.frame_index += 1
-            
+                # count frame number
+                show_status("render frame: %s" %(self.frame_index))
+                self.frame_index += 1
+                
             # sleep to keep a decent fps
             delay = t0 + 1./self.fps - time.clock()
-            if delay > 0 : time.sleep(delay)
+            if delay > 0: time.sleep(delay) 
+        
 
     def render(self):
         docontinue = True
@@ -62,8 +64,8 @@ class MMEngine:
             # get eeg data as [] from ext. source
             eegdata = self.eeg_source.read_data()
             #if(self.frame_index % 10 == 2) : print(str(eegdata.waves))
-            # FLAME UPDATE (at least 125 frames apart)
-            if(eegdata.blink == 1 and self.frame_index > 125):
+            # FLAME UPDATE (at least 250 frames apart)
+            if(eegdata.blink == 1 and self.frame_index > 2500):
                 self.NewFlame()
                 self.frame_index = 0
                 print("BLINK: new flames generated")
@@ -188,17 +190,25 @@ class MMEngine:
             x5.julia = 0.1 + random.random() * 0.4 # [0.1 : 0.5]
             x5.linear = 0.0
             x5.rotate(random.random() * 360)
+    def resetRendering(self):
+        # from fr0stlib.gui.preview import PreviewFrame
+        if(self.gui.previewframe.rendering):
+            # set the Preview as non-rendering
+            # self.gui.previewframe = PreviewFrame(self.gui.previewframe.parent)\
+            self.gui.previewframe.rendering = False
+        return
+
 
 # RUN
 audio_folder = get_scriptpath() + "/mindmurmer/sound_controller_demo_tracks"
 heartbeat_folder = get_scriptpath() + "/mindmurmer/sound_controller_heartbeats"
 # 1 - Dummy DATA
-#eeg = EEGDummy()
+eeg = EEGDummy()
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
 # eeg = EEGFromAudio(audio)
 # 2 - DATA from json file
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmur/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
-eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
+#eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 
 #_self is some hidden hack from fr0st that refers to the gui MainWindow
 engine = MMEngine(eeg, _self, audio_folder, heartbeat_folder)
