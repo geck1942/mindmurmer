@@ -1,5 +1,7 @@
 import logging
 import time
+import numpy
+import wx
 
 from fr0stlib import Flame
 from fr0stlib.render import save_image
@@ -47,13 +49,42 @@ class MMEngine:
                 #preview()
                 self.gui.previewframe.RenderPreview()
 
+                # Retreive main color from flame
+                rgb = self.get_flamecolor_rgb()
+                color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
+
+                # (NOT WORKING) draw rectangle to display color (debug)
+                # if(self.gui.previewframe.image is not None):
+                #     dc = wx.PaintDC(self.gui.previewframe.image)
+                #     dc.SetBrush(wx.Brush(color))
+                #     dc.DrawRectangle(0, 0, 50, 50)
+
                 # count frame number
-                show_status("render frame: %s" %(self.frame_index))
                 self.frame_index += 1
+                show_status("Frame: %s | Color: %s %s %s" %(self.frame_index, color.red, color.green, color.blue))
                 
             # sleep to keep a decent fps
             delay = t0 + 1./self.fps - time.clock()
             if delay > 0: time.sleep(delay) 
+        
+
+    def get_flamecolor_rgb(self):
+        r,g,b, = 0,0,0
+        weight = 0
+        # read colors for each xform
+        for xf in flame.xform:
+            if(xf.weight > 0):
+                gradientlocation = int(xf.color * (len(flame.gradient) - 1))
+                xcolors = flame.gradient[gradientlocation]
+                r = r + xcolors[0] * xf.weight
+                g = g + xcolors[1] * xf.weight
+                b = b + xcolors[2] * xf.weight
+                weight = weight + xf.weight
+        if weight == 0:
+            return [0,0,0]
+        return [int(r / weight), int(g / weight), int(b / weight)]
+        
+
         
 
     def render(self):
@@ -188,6 +219,7 @@ class MMEngine:
             x5.julia = 0.1 + random.random() * 0.4 # [0.1 : 0.5]
             x5.linear = 0.0
             x5.rotate(random.random() * 360)
+
     def resetRendering(self):
         # from fr0stlib.gui.preview import PreviewFrame
         if(self.gui.previewframe.rendering):
