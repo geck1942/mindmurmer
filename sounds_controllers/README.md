@@ -1,3 +1,7 @@
+## Dependencies
+1. Please install `SWMixer` by following instrcutions [here](https://github.com/nwhitehead/swmixer)
+
+
 ## Spinning up the Heartbeat sound controller demo
 
 ```
