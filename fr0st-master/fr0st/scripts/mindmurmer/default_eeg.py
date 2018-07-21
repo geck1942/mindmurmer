@@ -3,12 +3,12 @@ import time
 
 from fr0stlib import Flame
 from fr0stlib.render import save_image
-from fr0st.scripts.mindmurmer.sound_controller import MindMurmurHeartbeatAudioController
-
+from sounds_controllers.sound_controller import MindMurmurSoundScapeController
 from utils import get_scriptpath
 from eegsources import *
 
 # For running the script as stand alone and not through the fractal app
+
 if 'flame' not in locals() and 'flame' not in globals():
 	print "generating random flame"
 	flame = Flame()
@@ -26,7 +26,7 @@ if 'large_preview' not in locals() and 'preview' not in globals():
 class MMEngine:
     def __init__(self, eeg_source, gui, audio_folder):
         self.eeg_source = eeg_source
-        self.audio_controller = MindMurmurHeartbeatAudioController(audio_folder)
+        self.audio_controller = MindMurmurSoundScapeController(audio_folder)
         self.frame_index = 0
         self.speed = 1
         self.channels = 24
