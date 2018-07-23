@@ -5,6 +5,7 @@ import json
 class EEGData():
     # inline values
     def __init__(self, values):
+        # 5 waves * n channels + blink
         self.channels = (len(values)-1) / 5
         # each waves is average of 4 channels
         self.alpha = np.average(values[self.channels * 0 : self.channels * 1])
@@ -12,11 +13,31 @@ class EEGData():
         self.gamma = np.average(values[self.channels * 2 : self.channels * 3])
         self.delta = np.average(values[self.channels * 3 : self.channels * 4])
         self.theta = np.average(values[self.channels * 4 : self.channels * 5])
+        self.raw_waves = values[0 : self.channels * 5]
         
         # blink
         self.blink = values[self.channels * 5]
         # sum of the 5 waves
         self.waves = [self.alpha, self.beta, self.gamma, self.delta, self.theta]
+
+    # return a value from 0 (low) to 1 (deep meditation)
+    # based on the waves data (timeless data)
+    def raw_meditatation_state(self):
+        meditate = 0
+        # (coeff = 5) main   values are forehead alpha and forehead theta
+        meditate = meditate + (self.raw_waves[1] * 5) + (self.raw_waves[2] * 5)
+        meditate = meditate + (self.raw_waves[17] * 5) + (self.raw_waves[18] * 5)
+        # (coeff = 2) second values are frontal alpha & theta coherence
+        meditate = meditate + (1 - abs(self.raw_waves[1] - self.raw_waves[17])) * 2
+        meditate = meditate + (1 - abs(self.raw_waves[2] - self.raw_waves[18])) * 2
+        # (coeff = 1) third  values are headside alpha and headside theta
+        meditate = meditate + (self.raw_waves[0] * 1) + (self.raw_waves[3] * 1)
+        meditate = meditate + (self.raw_waves[16] * 1) + (self.raw_waves[19] * 1)
+        
+        return meditate / 28 # 5+5+5+5 + 2+2 + 1+1+1+1
+
+    def console_string(self):
+        return "".join(format(int(wav*10)) for wav in self.waves) + " - " + format(round(self.raw_meditatation_state(),1))
     
 
 class EEGSource(object):
@@ -26,9 +47,31 @@ class EEGSource(object):
         # 4 channels x 5 waves
         # + blink = 21
         self.raw_data = [0.0] * 21
+        self.data_history = []
         
     def read_data(self):
+        # add new EEGdata to history
+        self.data_history.append(self.read_new_data())
+        # and return it
+        return self.get_data()
+    
+    # read_new_data is an abstract method to implement
+    # in child classes. It returns a new EEGData to be added to the source
+    # history of data.
+    def read_new_data(self):
         return EEGData(self.raw_data)
+    
+    # returns the latest data from source history
+    def get_data(self):
+        if(self.data_history is None or len(self.data_history) == 0):
+            return None
+        return self.data_history[-1]
+    
+    def get_meditation_state(self):
+        raw_state = self.get_data().raw_meditatation_state()
+        return raw_state
+
+    
 
 
 class EEGDummy(EEGSource):
@@ -42,7 +85,7 @@ class EEGDummy(EEGSource):
         self.raw_data[self.channels * 5] = 0
 
     # generate dummy EEG data
-    def read_data(self):
+    def read_new_data(self):
         # random oscillation
         for x in range(self.channels * 5):
             self.raw_data[x] += random.uniform(-0.03, 0.03)
@@ -88,7 +131,7 @@ class EEGFromJSONFile(EEGSource):
             print('error during loading JSON: ' + str(jsonex))
 
     # iterate samples
-    def read_data(self):
+    def read_new_data(self):
         if(self.sample_index >= self.sample_length):
             print("SAMPLE JSON file is over. Restart")
             self.sample_index = 0
@@ -105,7 +148,7 @@ class EEGFromAudioFile(EEGSource):
         # blink
         self.raw_data[self.channels * 5] = 0
 
-    def read_data(self):
+    def read_new_data(self):
         # read audio data
         audio_data = self.audio_source.read_data()
         audio_data = self.GetFFT(audio_data)
@@ -158,7 +201,7 @@ class EEGFromAudio(EEGSource):
         self.raw_data[self.channels * 5] = 0
 
     # generate dummy EEG data
-    def read_data(self):
+    def read_new_data(self):
         # read audio data
         audio_data = self.audio_source.read_data()
         audio_data = self.GetFFT(audio_data)

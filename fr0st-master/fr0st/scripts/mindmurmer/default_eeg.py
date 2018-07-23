@@ -34,7 +34,7 @@ class MMEngine:
         self.channels = 24
         self.sinelength = 300 # frames
         self.gui = gui
-        self.fps = 25 # target frames per second
+        self.maxfps = 25 # target frames per second
 
     def start(self):
         play = True
@@ -61,12 +61,19 @@ class MMEngine:
 
                 # count frame number
                 self.frame_index += 1
-                show_status("Frame: %s | Color: %s %s %s" %(self.frame_index, color.red, color.green, color.blue))
                 
             # sleep to keep a decent fps
-            delay = t0 + 1./self.fps - time.clock()
-            if delay > 0: time.sleep(delay) 
-        
+            delay = t0 + 1./self.maxfps - time.clock()
+            if delay > 0: time.sleep(delay)
+            fps = int(1./(time.clock() - t0))
+            
+            # about the latest eegdata:
+            eegdata = self.eeg_source.get_data()
+            # update status bar
+            show_status("Frame: %s | Color: %s %s %s | EEG: %s" 
+                        %(self.frame_index, 
+                        color.red, color.green, color.blue,
+                        eegdata.console_string() if eegdata is not None else "" ))
 
     def get_flamecolor_rgb(self):
         r,g,b, = 0,0,0
@@ -95,11 +102,8 @@ class MMEngine:
             # get eeg data as [] from ext. source
             eegdata = self.eeg_source.read_data()
             #if(self.frame_index % 10 == 2) : print(str(eegdata.waves))
-            # FLAME UPDATE (at least 250 frames apart)
-            if(eegdata.blink == 1 and self.frame_index > 2500):
-                self.NewFlame()
-                self.frame_index = 0
-                print("BLINK: new flames generated")
+            # FLAME UPDATE (at least 125 frames apart)
+            # if(eegdata.blink == 1 and self.frame_index > 125):
                 # adjust form weights (from utils)
                 #normalize_weights(flame)
                 
@@ -230,14 +234,16 @@ class MMEngine:
 
 
 # RUN
-audio_folder = get_scriptpath() + "/mindmurmer/sound_controller_demo_tracks"
+audio_folder = get_scriptpath() + "/mindmurmer/sounds_controllers/sound_controller_demo_files/heartbeat_controller_demo_files"
 # 1 - Dummy DATA
-eeg = EEGDummy()
+#eeg = EEGDummy()
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
 # eeg = EEGFromAudio(audio)
 # 2 - DATA from json file
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmur/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
+eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-16--07-24-35_1531745297756.json') # large (16 july)
+#eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-17--07-00-11_1531868655676.json') # large (17 july)
 
 #_self is some hidden hack from fr0st that refers to the gui MainWindow
 engine = MMEngine(eeg, _self, audio_folder)
