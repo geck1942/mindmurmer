@@ -187,7 +187,7 @@ class MindMurmurSoundScapeController(MindMurmurBaseSoundController):
 	"""
 	# I cannot figure out the scale of these, not seconds.. these values seem right
 	FADEOUT_AMOUNT = 10
-	FADEIN_AMOUNT = 300
+	FADEIN_AMOUNT = 100
 	HEARTBEAT_SOUND_FILENAME = "heartbeat.wav"
 	STAGE_NAME_SPLITTER = "::"
 	HEARTBEAT_SOUND_FILENAME_KEY = "heartbeat_sound_filename"
@@ -202,6 +202,7 @@ class MindMurmurSoundScapeController(MindMurmurBaseSoundController):
 		super(MindMurmurSoundScapeController, self).__init__(audio_folder, sample_rate)
 
 		self.current_playing_track_filename = None
+		self.tracks_last_playing_position = dict()
 
 		self._validate_audio_files_and_prep_data()
 
@@ -257,16 +258,23 @@ class MindMurmurSoundScapeController(MindMurmurBaseSoundController):
 
 			if len(self.playing_tracks) > 0:
 				logging.info("fading out current track to end in {fadeout} seconds".format(fadeout=self.FADEOUT_AMOUNT))
+				track_current_position = self.playing_tracks[-1].get_position()
+				self.tracks_last_playing_position[self.current_playing_track_filename] = track_current_position
+
 				self.playing_tracks[-1].set_volume(0, fadetime=self.sample_rate * self.FADEOUT_AMOUNT)
 				fadein_time = self.sample_rate * self.FADEIN_AMOUNT
 				logging.info("set fade")
 
 			# fade in of one second
 			track_sound = swmixer.Sound(track_full_path)
-			track_channel = track_sound.play(fadein=fadein_time)
-			self.playing_tracks.append(track_channel)
+			track_channel = track_sound.play(fadein=fadein_time, loops=100)
 			self.current_playing_track_filename = track_filename
-			logging.info("starting playing {track}".format(track=track_filename))
+
+			track_last_position = self.tracks_last_playing_position.get(track_filename, 0)
+			track_channel.set_position(track_last_position)
+			self.playing_tracks.append(track_channel)
+			logging.info("starting playing {track} from position {track_last_position}".format(
+				track=track_filename, track_last_position=track_last_position))
 
 	def _get_meditation_stage_data_for_stage(self, stage):
 		return self.tracks_by_stage[stage][self.TRACKS_KEY][0]
@@ -463,9 +471,22 @@ if __name__ == "__main__":
 			mmhac.set_meditation_stage(0)
 			time.sleep(5)
 
-			for i in range(5):
+			logging.info("set mode to 1, nothing should change")
+			mmhac.set_meditation_stage(1)
+			time.sleep(10)
+
+			logging.info("set mode to 0")
+			mmhac.set_meditation_stage(0)
+			time.sleep(10)
+
+
+			for i in range(1, 6):
 				logging.info("set mode to {!s}".format(i))
 				mmhac.set_meditation_stage(i)
+				time.sleep(10)
+
+				logging.info("set mode to {!s}".format(i - 1))
+				mmhac.set_meditation_stage(i - 1)
 				time.sleep(10)
 
 			mmhac.stop_all_sounds()
