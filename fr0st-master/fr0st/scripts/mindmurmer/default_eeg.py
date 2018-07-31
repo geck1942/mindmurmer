@@ -5,9 +5,11 @@ import wx
 
 from fr0stlib import Flame
 from fr0stlib.render import save_image
-from sounds_controllers.sound_controller import MindMurmurSoundScapeController
 from utils import get_scriptpath
 from eegsources import *
+from rabbit_controller import RabbitController
+from sound_controller import MindMurmurSoundScapeController
+
 
 # For running the script as stand alone and not through the fractal app
 
@@ -35,6 +37,8 @@ class MMEngine:
         self.sinelength = 300 # frames
         self.gui = gui
         self.maxfps = 25 # target frames per second
+        # init rabbitMQ connection
+        self.rabbit = RabbitController('localhost', 5672, 'guest', 'guest', '/')
 
     def start(self):
         play = True
@@ -53,11 +57,12 @@ class MMEngine:
                 rgb = self.get_flamecolor_rgb()
                 color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
 
-                # (NOT WORKING) draw rectangle to display color (debug)
-                # if(self.gui.previewframe.image is not None):
-                #     dc = wx.PaintDC(self.gui.previewframe.image)
-                #     dc.SetBrush(wx.Brush(color))
-                #     dc.DrawRectangle(0, 0, 50, 50)
+                #TODO get heartbeat
+                heartbeat = 60
+                
+                # send data to RabbitMQ bus
+                self.rabbit.publish_color(color)
+                self.rabbit.publish_heart(heartbeat)
 
                 # count frame number
                 self.frame_index += 1
@@ -65,7 +70,6 @@ class MMEngine:
             # sleep to keep a decent fps
             delay = t0 + 1./self.maxfps - time.clock()
             if delay > 0: time.sleep(delay)
-            fps = int(1./(time.clock() - t0))
             
             # about the latest eegdata:
             eegdata = self.eeg_source.get_data()
@@ -75,6 +79,9 @@ class MMEngine:
                         color.red, color.green, color.blue,
                         eegdata.console_string() if eegdata is not None else "" ))
 
+           
+
+    # retreive the global fractal color from the current flame's xforms
     def get_flamecolor_rgb(self):
         r,g,b, = 0,0,0
         weight = 0
@@ -90,10 +97,12 @@ class MMEngine:
         if weight == 0:
             return [0,0,0]
         return [int(r / weight), int(g / weight), int(b / weight)]
-        
+    
 
+            
+    
         
-
+    # process new EEGData and animate flame
     def render(self):
         docontinue = True
         if (flame.xform is None or len(flame.xform) == 0):
@@ -228,21 +237,21 @@ class MMEngine:
         # from fr0stlib.gui.preview import PreviewFrame
         if(self.gui.previewframe.rendering):
             # set the Preview as non-rendering
-            # self.gui.previewframe = PreviewFrame(self.gui.previewframe.parent)\
+            # self.gui.previewframe = PreviewFrame(self.gui.previewframe.parent)
             self.gui.previewframe.rendering = False
         return
 
 
 # RUN
-audio_folder = get_scriptpath() + "/mindmurmer/sounds_controllers/sound_controller_demo_files/heartbeat_controller_demo_files"
+audio_folder = get_scriptpath() + "/mindmurmer/sounds_controllers/sound_controller_demo_files/soundscape_controller_demo_files"
 # 1 - Dummy DATA
-#eeg = EEGDummy()
+# eeg = EEGDummy()
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
 # eeg = EEGFromAudio(audio)
 # 2 - DATA from json file
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmur/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
-#eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
-eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-16--07-24-35_1531745297756.json') # large (16 july)
+eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
+# eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-16--07-24-35_1531745297756.json') # large (16 july)
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-17--07-00-11_1531868655676.json') # large (17 july)
 
 #_self is some hidden hack from fr0st that refers to the gui MainWindow

@@ -13,8 +13,12 @@ the following libraries are required:
 - **wave**
 - **swmixer**
 - **aubio** (on windows, Microsoft Visual C++ 9.0 is required. Get it from http://aka.ms/vcpython27)
+- **pika**
 
+## Windows Environment variables
 
+- `mindmurmer`
+- `mindmurmer\fr0st-master\fr0stlib\pyflam3\win32_dlls`
 
 ## the fr0st folder
 
