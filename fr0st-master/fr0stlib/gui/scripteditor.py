@@ -240,7 +240,10 @@ class MyLog(wx.TextCtrl):
 
     @InMainFast
     def write(self, message):
-        self.AppendText(message)
+        try:
+            self.AppendText(message)
+        except:
+            pass
 
 
 

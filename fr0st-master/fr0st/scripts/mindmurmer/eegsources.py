@@ -76,6 +76,7 @@ class EEGSource(object):
 
 class EEGDummy(EEGSource):
     def __init__(self):
+        print('EEGDummy Started')
         super(EEGDummy, self).__init__()
 
         # 4 x alpha + 4 x beta + 4 x gamma + 4 x delta + 4 x theta
@@ -102,6 +103,7 @@ class EEGDummy(EEGSource):
 class EEGFromJSONFile(EEGSource):
     def __init__(self, filepath):
         super(EEGFromJSONFile, self).__init__()
+        print('EEGFromJSONFile Started: ' + filepath)
         # open json file
         self.sample_length = 0
         self.sample_index = 0
@@ -144,6 +146,7 @@ class EEGFromJSONFile(EEGSource):
 class EEGFromAudioFile(EEGSource):
     def __init__(self, audio_source):
         super(EEGFromAudioFile, self).__init__() 
+        print('EEGFromAudioFile Started')
         self.audio_source = audio_source
         # blink
         self.raw_data[self.channels * 5] = 0
@@ -196,6 +199,7 @@ class EEGFromAudioFile(EEGSource):
 class EEGFromAudio(EEGSource):
     def __init__(self, audio_source):
         super(EEGFromAudio, self).__init__() 
+        print('EEGFromAudio Started')
         self.audio_source = audio_source
         # blink
         self.raw_data[self.channels * 5] = 0

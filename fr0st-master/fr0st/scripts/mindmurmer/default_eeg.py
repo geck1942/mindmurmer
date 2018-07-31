@@ -41,43 +41,58 @@ class MMEngine:
         self.rabbit = RabbitController('localhost', 5672, 'guest', 'guest', '/')
 
     def start(self):
-        play = True
+        playok = True
+        # reset counters
         self.resetRendering() 
-        while play:
-            t0 = time.clock()
+        self.frame_index = 0
+        # start loop
+        while playok:
+            try:
+                # fps timer
+                t0 = time.clock()
 
-            # animate preview window if renderer is Idling
-            if(self.gui.previewframe.rendering == False):
-                play = self.render()
-                # animate wireframe window
-                #preview()
-                self.gui.previewframe.RenderPreview()
+                # play 
+                playok = self.render()
+                # animate preview window if renderer is ok and Idling
+                if(playok and self.gui.previewframe.rendering == False):
+                    
+                    # run pyflam4 rendering
+                    self.gui.previewframe.RenderPreview()
 
-                # Retreive main color from flame
-                rgb = self.get_flamecolor_rgb()
-                color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
+                    # about the latest eegdata:
+                    eegdata = self.eeg_source.get_data()
 
-                #TODO get heartbeat
-                heartbeat = 60
+                    # Retreive main color from flame
+                    rgb = self.get_flamecolor_rgb()
+                    color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
+
+                    #TODO get heartbeat
+                    heartbeat = 60
+                    
+                    # update status bar
+                    show_status("Frame: %s | Color: %s %s %s | EEG: %s" 
+                                %(self.frame_index, 
+                                color.red, color.green, color.blue,
+                                eegdata.console_string() if eegdata is not None else "" ))
+
+                    # send data to RabbitMQ bus
+                    self.rabbit.publish_color(color)
+                    self.rabbit.publish_heart(heartbeat)
+
+                    # count frame number
+                    self.frame_index += 1
+
+                # sleep to keep a decent fps
+                delay = t0 + 1./self.maxfps - time.clock()
+                if delay > 0: time.sleep(delay)
                 
-                # send data to RabbitMQ bus
-                self.rabbit.publish_color(color)
-                self.rabbit.publish_heart(heartbeat)
-
-                # count frame number
-                self.frame_index += 1
-                
-            # sleep to keep a decent fps
-            delay = t0 + 1./self.maxfps - time.clock()
-            if delay > 0: time.sleep(delay)
+            except Exception as ex:
+                print('error during MMEngine loop: ' + str(ex))
+                playok = False
+            finally:
+                # self.gui.previewframe.Maximize(False)
+                pass
             
-            # about the latest eegdata:
-            eegdata = self.eeg_source.get_data()
-            # update status bar
-            show_status("Frame: %s | Color: %s %s %s | EEG: %s" 
-                        %(self.frame_index, 
-                        color.red, color.green, color.blue,
-                        eegdata.console_string() if eegdata is not None else "" ))
 
            
 
@@ -235,22 +250,22 @@ class MMEngine:
 
     def resetRendering(self):
         # from fr0stlib.gui.preview import PreviewFrame
-        if(self.gui.previewframe.rendering):
+        # if(self.gui.previewframe.rendering):
             # set the Preview as non-rendering
             # self.gui.previewframe = PreviewFrame(self.gui.previewframe.parent)
-            self.gui.previewframe.rendering = False
+            # self.gui.previewframe.rendering = False
         return
 
 
 # RUN
 audio_folder = get_scriptpath() + "/mindmurmer/sounds_controllers/sound_controller_demo_files/soundscape_controller_demo_files"
 # 1 - Dummy DATA
-# eeg = EEGDummy()
+eeg = EEGDummy()
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
 # eeg = EEGFromAudio(audio)
 # 2 - DATA from json file
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmur/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
-eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
+# eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 # eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-16--07-24-35_1531745297756.json') # large (16 july)
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-17--07-00-11_1531868655676.json') # large (17 july)
 
@@ -258,3 +273,4 @@ eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10-
 engine = MMEngine(eeg, _self, audio_folder)
 
 engine.start()
+print('- END OF SCRIPT -')
