@@ -40,12 +40,20 @@ class MMEngine:
         # init rabbitMQ connection
         self.rabbit = RabbitController('localhost', 5672, 'guest', 'guest', '/')
 
+        #bind keyboard events:
+        self.gui.previewframe.Bind(wx.EVT_KEY_DOWN, self.OnKey)
+
+
     def start(self):
         playok = True
         # reset counters
         self.resetRendering() 
-        self.frame_index = 0
+        # show GUI preview Window
+        self.gui.previewframe.Show()
+        self.gui.previewframe.ShowFullScreen(True)
+        
         # start loop
+        self.frame_index = 0
         while playok:
             try:
                 # fps timer
@@ -84,14 +92,19 @@ class MMEngine:
 
                 # sleep to keep a decent fps
                 delay = t0 + 1./self.maxfps - time.clock()
-                if delay > 0: time.sleep(delay)
+                if delay > 0. : time.sleep(delay)
+                else :  time.sleep(0.01)
                 
             except Exception as ex:
                 print('error during MMEngine loop: ' + str(ex))
                 playok = False
-            finally:
-                # self.gui.previewframe.Maximize(False)
-                pass
+            
+        # -- END of loop
+
+        # hide GUI preview Window
+        self.gui.previewframe.Hide()
+        self.gui.previewframe.ShowFullScreen(False)
+        pass
             
 
            
@@ -247,6 +260,17 @@ class MMEngine:
             x5.julia = 0.1 + random.random() * 0.4 # [0.1 : 0.5]
             x5.linear = 0.0
             x5.rotate(random.random() * 360)
+
+    #----------------------------------------------------------------------
+    def OnKey(self, event):
+
+        key_code = event.GetKeyCode()
+        if key_code == wx.WXK_ESCAPE:
+            self.gui.previewframe.ShowFullScreen(True)
+        if key_code == wx.WXK_CONTROL_Q:
+            self.gui.previewframe.ShowFullScreen(False)
+        
+
 
     def resetRendering(self):
         # from fr0stlib.gui.preview import PreviewFrame
