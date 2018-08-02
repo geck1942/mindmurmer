@@ -37,24 +37,24 @@ class InputController(object):
             self.engine.zoom(0.9)
         # [W] OR [UP_ARROW] - MOVE
         elif key_code == 87 or key_code == 315:
-            self.engine.move(0, -1)
+            self.engine.move(0, +1)
         # [A] OR [LEFT_ARROW] - MOVE
         elif key_code == 65 or key_code == 314:
             self.engine.move(-1, 0)
         # [S] OR [DOWN_ARROW] - MOVE
         elif key_code == 83 or key_code == 317:
-            self.engine.move(0, +1)
+            self.engine.move(0, -1)
         # [D] OR [RIGHT_ARROW] - MOVE
         elif key_code == 68 or key_code == 316:
             self.engine.move(+1, 0)
         # [Q] - ROTATE LEFT
         elif key_code == 81:
-            self.engine.rotate(-15)
+            self.engine.rotate(-5)
         # [E] - ROTATE RIGHT
         elif key_code == 69:
-            self.engine.rotate(+15)
+            self.engine.rotate(+5)
         # [Z] - RECENTER
-        elif key_code == 100:
+        elif key_code == 90:
             self.engine.recenter()
 
     @Bind(wx.EVT_MOUSEWHEEL)

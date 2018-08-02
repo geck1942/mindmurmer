@@ -125,11 +125,14 @@ class MMEngine:
     def zoom(self, zoomamount = 1):
         self.flame.scale *= zoomamount
 
-    def move(self, move_x = 0, move_y = 0):
-        move_x *= np.cos(self.flame.rotate * np.pi / 180) / self.flame.scale
-        move_y *= np.sin(self.flame.rotate * np.pi / 180) / self.flame.scale
-        # move_x /= self.flame.scale
-        # move_y /= self.flame.scale
+    def move(self, x = 0, y = 0):
+
+        move_x =  y * np.sin(self.flame.rotate * np.pi / 180.) \
+                + x * np.cos(self.flame.rotate * np.pi / 180.)
+        move_y =  y * np.cos(self.flame.rotate * np.pi / 180.) \
+                + x * np.sin(self.flame.rotate * np.pi / 180.)
+        move_x /= self.flame.scale
+        move_y /= self.flame.scale
         
 
         self.flame.center[0] += move_x
@@ -140,6 +143,7 @@ class MMEngine:
 
     def recenter(self):
         self.flame.center = 0, 0
+        self.flame.rotate = 0
 
     # retreive the global fractal color from the current flame's xforms
     def get_flamecolor_rgb(self):
