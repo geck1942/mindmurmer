@@ -31,7 +31,7 @@ class RabbitController(object):
                                     routing_key='',
                                     body=color_com.to_json())
 
-            print(" [x] Sent color message %r {0}" % color)
+            # print(" [x] Sent color message %r {0}" % color)
         except Exception as e:
             print(repr(e))
             raise e
@@ -50,7 +50,7 @@ class RabbitController(object):
                                     routing_key='',
                                     body=heart_com.to_json())
 
-            print(" [x] Sent heartbeat message %r {0}" % heartbeat)
+            # print(" [x] Sent heartbeat message %r {0}" % heartbeat)
         except Exception as e:
             print(repr(e))
             raise e

@@ -9,6 +9,7 @@ from utils import get_scriptpath
 from eegsources import *
 from rabbit_controller import RabbitController
 from sound_controller import MindMurmurSoundScapeController
+from input_controller import InputController
 
 
 # For running the script as stand alone and not through the fractal app
@@ -30,39 +31,50 @@ if 'large_preview' not in locals() and 'preview' not in globals():
 class MMEngine:
     def __init__(self, eeg_source, gui, audio_folder):
         self.eeg_source = eeg_source
-        self.audio_controller = MindMurmurSoundScapeController(audio_folder)
         self.frame_index = 0
         self.speed = 1
         self.channels = 24
         self.sinelength = 300 # frames
         self.gui = gui
         self.maxfps = 25 # target frames per second
+
         # init rabbitMQ connection
         self.rabbit = RabbitController('localhost', 5672, 'guest', 'guest', '/')
 
-        #bind keyboard events:
-        self.gui.previewframe.Bind(wx.EVT_KEY_DOWN, self.OnKey)
+        self.audio_controller = MindMurmurSoundScapeController(audio_folder)
+        self.input_controller = InputController(self)
+
+        # attach keyboard events.
+        self.input_controller.bind_keyboardevents(self.gui.previewframe)
+        
+        # reference to global or defined herebefore
+        self.flame = flame
 
 
     def start(self):
-        playok = True
         # reset counters
-        self.resetRendering() 
+        self.resetRendering()
+        # hide UI
+        # self.gui.Hide()
         # show GUI preview Window
         self.gui.previewframe.Show()
         self.gui.previewframe.ShowFullScreen(True)
-        
+        time.sleep(0.040)
+        # fullscreen
+        # self.gui.previewframe.ShowFullScreen(True)
+
+        # time.sleep(0.400)
+        self.gui.previewframe.SetFocus()
         # start loop
         self.frame_index = 0
-        while playok:
+        self.keeprendering = True
+        while self.keeprendering:
             try:
                 # fps timer
                 t0 = time.clock()
 
-                # play 
-                playok = self.render()
                 # animate preview window if renderer is ok and Idling
-                if(playok and self.gui.previewframe.rendering == False):
+                if(self.render() and self.gui.previewframe.rendering == False):
                     
                     # run pyflam4 rendering
                     self.gui.previewframe.RenderPreview()
@@ -97,17 +109,37 @@ class MMEngine:
                 
             except Exception as ex:
                 print('error during MMEngine loop: ' + str(ex))
-                playok = False
+                self.keeprendering = False
             
         # -- END of loop
-
-        # hide GUI preview Window
-        self.gui.previewframe.Hide()
-        self.gui.previewframe.ShowFullScreen(False)
-        pass
+        self.stop()
             
-
+    def stop(self):
+        self.keeprendering = False
            
+        # hide GUI preview Window
+        self.gui.Show()
+        # self.gui.previewframe.Hide()
+        self.gui.previewframe.ShowFullScreen(False)
+
+    def zoom(self, zoomamount = 1):
+        self.flame.scale *= zoomamount
+
+    def move(self, move_x = 0, move_y = 0):
+        move_x *= np.cos(self.flame.rotate * np.pi / 180) / self.flame.scale
+        move_y *= np.sin(self.flame.rotate * np.pi / 180) / self.flame.scale
+        # move_x /= self.flame.scale
+        # move_y /= self.flame.scale
+        
+
+        self.flame.center[0] += move_x
+        self.flame.center[1] += move_y
+    
+    def rotate(self, deg_angle = 0):
+        self.flame.rotate += deg_angle
+
+    def recenter(self):
+        self.flame.center = 0, 0
 
     # retreive the global fractal color from the current flame's xforms
     def get_flamecolor_rgb(self):
@@ -259,17 +291,7 @@ class MMEngine:
             x5.spherical = 0.1 + random.random() * 0.9 # [0.1 : 1]
             x5.julia = 0.1 + random.random() * 0.4 # [0.1 : 0.5]
             x5.linear = 0.0
-            x5.rotate(random.random() * 360)
-
-    #----------------------------------------------------------------------
-    def OnKey(self, event):
-
-        key_code = event.GetKeyCode()
-        if key_code == wx.WXK_ESCAPE:
-            self.gui.previewframe.ShowFullScreen(True)
-        if key_code == wx.WXK_CONTROL_Q:
-            self.gui.previewframe.ShowFullScreen(False)
-        
+            x5.rotate(random.random() * 360)  
 
 
     def resetRendering(self):
