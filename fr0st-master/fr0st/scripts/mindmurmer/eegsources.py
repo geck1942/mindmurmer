@@ -5,6 +5,8 @@ import json
 class EEGData():
     # inline values
     def __init__(self, values):
+
+        self.values = values
         # 5 waves * n channels + blink
         self.channels = (len(values)-1) / 5
         # each waves is average of 4 channels
@@ -53,7 +55,7 @@ class EEGSource(object):
         # add new EEGdata to history
         self.data_history.append(self.read_new_data())
         # and return it
-        return self.get_data()
+        return self.get_smooth_data()
     
     # read_new_data is an abstract method to implement
     # in child classes. It returns a new EEGData to be added to the source
@@ -66,6 +68,19 @@ class EEGSource(object):
         if(self.data_history is None or len(self.data_history) == 0):
             return None
         return self.data_history[-1]
+
+    # returns an average data from 10 last bitd in history
+    def get_smooth_data(self):
+        if(self.data_history is None or len(self.data_history) == 0):
+            return None
+        last_elements = len(self.data_history)
+        if last_elements > 10 : last_elements = 10
+        lastvalues = map((lambda eeg: eeg.values), self.data_history[:-last_elements])
+        avgvalues = []
+        for i in range(len(lastvalues[0])):
+            avgvalues.append(sum(values[i] for values in lastvalues) / len(lastvalues))
+        return EEGData(avgvalues)
+
     
     def get_meditation_state(self):
         raw_state = self.get_data().raw_meditatation_state()

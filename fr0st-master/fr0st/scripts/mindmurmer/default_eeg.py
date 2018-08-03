@@ -5,6 +5,8 @@ import wx
 
 from fr0stlib import Flame
 from fr0stlib.render import save_image
+from fr0stlib.pyflam3 import Genome, byref, flam3_interpolate
+
 from utils import get_scriptpath
 from eegsources import *
 from rabbit_controller import RabbitController
@@ -87,20 +89,25 @@ class MMEngine:
                     # Retreive main color from flame
                     rgb = self.get_flamecolor_rgb()
                     color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
-                    eeg_meditation_state = int(round(len(self.states_flames) * eegdata.raw_meditatation_state(), 0))
+                    eeg_meditation_state = round(len(self.states_flames) * eegdata.raw_meditatation_state(), 2)
 
                     #TODO get heartbeat
                     heartbeat = 60
                     
                     # new meditation state reached
                     if(self.meditation_state != eeg_meditation_state):
-                        print('NEW meditation state: %s using %s' %(eeg_meditation_state,
-                                                                    self.states_flames[eeg_meditation_state].name))
                         # load flame from eegdata
-                        self.flame = self.load_flame(self.states_flames[eeg_meditation_state])
+                        origin_index = int(np.floor(eeg_meditation_state))
+                        target_index = origin_index + 1
+                        self.flame = self.load_flame(self.states_flames[origin_index],
+                                                     self.states_flames[target_index],
+                                                     eeg_meditation_state - origin_index)
+
+                        print('NEW meditation state: %s using %s' %(eeg_meditation_state,
+                                                                    self.states_flames[origin_index].name))
                         # save
                         self.meditation_state = eeg_meditation_state
-
+                    
                     # update status bar
                     show_status("Frame: %s | Color: %s %s %s | EEG: %s | MEDITATION STATE: %s" 
                                 %(self.frame_index, 
@@ -121,7 +128,9 @@ class MMEngine:
                 else :  time.sleep(0.01)
                 
             except Exception as ex:
+                import traceback
                 print('error during MMEngine loop: ' + str(ex))
+                traceback.print_exc()
                 self.keeprendering = False
             
         # -- END of loop
@@ -196,12 +205,20 @@ class MMEngine:
     def load_flame(self, flame_origin, flame_target = None, lerp = 0):
         if(lerp == 0 or flame_target is None):
             return flame_origin
-        if(lerp == 1 or flame_origin is None):
+        elif(lerp == 1 or flame_origin is None):
             return flame_target
+        else:                   
+            # interpolation:
+            from fr0stlib.render import to_string as flame_to_string
+            flame_origin.time = 0
+            flame_target.time = 1
+            flames_lerp = [flame_origin, flame_target]
+            flames_str = "<flames>%s</flames>" % "".join(map(flame_to_string, flames_lerp))
+            genomes, ngenomes = Genome.from_string(flames_str)           
+            targetflame = Genome()
+            flam3_interpolate(genomes, ngenomes, lerp, 0, byref(targetflame))
+            return Flame(targetflame.to_string())
 
-        # interpolation:
-
-    
         
     # process new EEGData and animate flame
     def render(self):
@@ -253,12 +270,12 @@ class MMEngine:
 # RUN
 audio_folder = get_scriptpath() + "/mindmurmer/sounds_controllers/sound_controller_demo_files/soundscape_controller_demo_files"
 # 1 - Dummy DATA
-eeg = EEGDummy()
+# eeg = EEGDummy()
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
 # eeg = EEGFromAudio(audio)
 # 2 - DATA from json file
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmur/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
-# eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
+eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 # eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-16--07-24-35_1531745297756.json') # large (16 july)
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-17--07-00-11_1531868655676.json') # large (17 july)
 
