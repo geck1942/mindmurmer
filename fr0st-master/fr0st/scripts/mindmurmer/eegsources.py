@@ -75,7 +75,10 @@ class EEGSource(object):
             return None
         last_elements = len(self.data_history)
         if last_elements > 10 : last_elements = 10
-        lastvalues = map((lambda eeg: eeg.values), self.data_history[:-last_elements])
+        lastvalues = []
+
+        for data in self.data_history[-last_elements:]:
+            lastvalues.append(data.values)
         avgvalues = []
         for i in range(len(lastvalues[0])):
             avgvalues.append(sum(values[i] for values in lastvalues) / len(lastvalues))

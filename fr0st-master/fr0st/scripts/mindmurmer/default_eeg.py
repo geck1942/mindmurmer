@@ -53,6 +53,7 @@ class MMEngine:
         
         # reference to global or defined herebefore
         self.flame = flame
+        self.incomming_flames = []
 
     def start(self):
         # ask for input
@@ -77,35 +78,42 @@ class MMEngine:
                 # fps timer
                 t0 = time.clock()
 
-                # animate preview window if renderer is ok and Idling
-                if(self.render() and self.gui.previewframe.rendering == False):
-                    
-                    # run pyflam4 rendering
-                    self.gui.previewframe.RenderPreview(self.flame)
+                # read data
+                eegdata = self.eeg_source.read_data()
 
-                    # about the latest eegdata:
-                    eegdata = self.eeg_source.get_data()
+                # if flames were designed for transition, 
+                # do the transition
+                if(len(self.incomming_flames) > 0):
+                    self.flame = self.incomming_flames.pop(0)
+                
+                if(eegdata is not None):
+                    self.animate(eegdata)
+                                       
+                    # animate preview window if renderer is ok and Idling
+                    if(self.gui.previewframe.rendering == False):
+                        # run pyflam4 rendering
+                        self.gui.previewframe.RenderPreview(self.flame)
 
                     # Retreive main color from flame
                     rgb = self.get_flamecolor_rgb()
                     color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
-                    eeg_meditation_state = round(len(self.states_flames) * eegdata.raw_meditatation_state(), 2)
+                    eeg_meditation_state = round(len(self.states_flames) * eegdata.raw_meditatation_state(), 0)
 
                     #TODO get heartbeat
                     heartbeat = 60
                     
-                    # new meditation state reached
-                    if(self.meditation_state != eeg_meditation_state):
-                        # load flame from eegdata
-                        origin_index = int(np.floor(eeg_meditation_state))
-                        target_index = origin_index + 1
-                        self.flame = self.load_flame(self.states_flames[origin_index],
-                                                     self.states_flames[target_index],
-                                                     eeg_meditation_state - origin_index)
 
-                        print('NEW meditation state: %s using %s' %(eeg_meditation_state,
-                                                                    self.states_flames[origin_index].name))
-                        # save
+                    # new meditation state reached
+                    # -- do not apply if transitionning flames
+                    if(self.meditation_state != eeg_meditation_state and len(self.incomming_flames) == 0):
+                        # generate 25 transition flames
+                        target_flame_index = int(eeg_meditation_state)
+                        for i in range(0, 25):
+                            lerp_pct = i / 25.
+                            inter_flame = self.load_flame(self.flame, self.states_flames[target_flame_index], lerp_pct)
+                            self.incomming_flames.append(inter_flame)
+
+                        # save state
                         self.meditation_state = eeg_meditation_state
                     
                     # update status bar
@@ -143,6 +151,9 @@ class MMEngine:
         self.gui.Show()
         # self.gui.previewframe.Hide()
         self.gui.previewframe.ShowFullScreen(False)
+
+        # set gobal variable to visualize final falame
+        self.gui.flame = self.flame
 
     def zoom(self, zoomamount = 1):
         self.flame.scale *= zoomamount
@@ -221,13 +232,11 @@ class MMEngine:
 
         
     # process new EEGData and animate flame
-    def render(self):
+    def animate(self, eegdata):
         docontinue = True
         if (self.flame.xform is None or len(self.flame.xform) == 0):
             return False
         try:
-            # get eeg data as [] from ext. source
-            eegdata = self.eeg_source.read_data()
             #if(self.frame_index % 10 == 2) : print(str(eegdata.waves))
             # FLAME UPDATE (at least 125 frames apart)
             # if(eegdata.blink == 1 and self.frame_index > 125):
@@ -256,6 +265,7 @@ class MMEngine:
                     # every n frames is a cycle of X back and forth.
                     data *= np.sin(self.frame_index * (np.pi * 2) / self.sinelength)
                     mov_delta = data * 0.02 * self.speed
+                    x.move(mov_delta)
 
             return True
         except Exception as ex:
@@ -270,12 +280,12 @@ class MMEngine:
 # RUN
 audio_folder = get_scriptpath() + "/mindmurmer/sounds_controllers/sound_controller_demo_files/soundscape_controller_demo_files"
 # 1 - Dummy DATA
-# eeg = EEGDummy()
+eeg = EEGDummy()
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
 # eeg = EEGFromAudio(audio)
 # 2 - DATA from json file
-#eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmur/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
-eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
+# eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmur/data/Muse-B1C1_2018-06-11--07-48-41_1528717729867.json') # extra small
+# eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-06-10--18-35-09_1528670624296.json') # medium
 # eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-16--07-24-35_1531745297756.json') # large (16 july)
 #eeg = EEGFromJSONFile(get_scriptpath() + '/mindmurmer/data/Muse-B1C1_2018-07-17--07-00-11_1531868655676.json') # large (17 july)
 
