@@ -129,8 +129,8 @@ class MMEngine:
                                 eeg_meditation_state ))
 
                     # send data to RabbitMQ bus
-                    self.rabbit.publish_color(color)
                     self.rabbit.publish_heart(heartbeat)
+                    # self.rabbit.publish_state(int(self.meditation_state))
 
                     # count frame number
                     self.frame_index += 1

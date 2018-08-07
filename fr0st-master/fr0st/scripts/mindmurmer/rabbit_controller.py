@@ -10,13 +10,16 @@ class RabbitController(object):
 
         self.QUEUE_NAME_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain_colorCommand'
         self.QUEUE_NAME_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain_heartRateCommand'
+        self.QUEUE_NAME_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain_meditationStateCommand'
         self.EXCHANGE_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain'
         self.EXCHANGE_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain'
+        self.EXCHANGE_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain'
 
         self.credentials = pika.PlainCredentials(user, password)
         self.parameters = pika.ConnectionParameters(host, port, virtualhost, self.credentials)
         self.color_props = pika.BasicProperties(type=self.EXCHANGE_COLOR, delivery_mode=2)
         self.heart_props = pika.BasicProperties(type=self.EXCHANGE_HEART, delivery_mode=2)
+        self.state_props = pika.BasicProperties(type=self.EXCHANGE_STATE, delivery_mode=2)
 
         return
 
@@ -51,6 +54,26 @@ class RabbitController(object):
                                     body=heart_com.to_json())
 
             # print(" [x] Sent heartbeat message %r {0}" % heartbeat)
+        except Exception as e:
+            print(repr(e))
+            raise e
+        finally:
+            if self.open_connection:
+                self.open_connection.close()
+
+
+    def publish_state(self, meditation_state):
+        try:
+            state_com = MeditationStateCommand(meditation_state)
+
+            self.open_channel()
+            self.active_channel.exchange_declare(exchange=self.EXCHANGE_STATE, passive=True)
+            self.active_channel.basic_publish(exchange=self.EXCHANGE_STATE,
+                                    properties=self.state_props,
+                                    routing_key='',
+                                    body=state_com.to_json())
+
+            # print(" [x] Sent meditation_state message %r {0}" % meditation_state)
         except Exception as e:
             print(repr(e))
             raise e
@@ -113,3 +136,21 @@ class HeartRateCommand(object):
 
     def to_string(self):
         return "({0}, {1})".format(self.CommandId, self.HeartRate)
+
+class MeditationStateCommand(object):
+    """An instance of a meditation state command
+
+    Attributes:
+        CommandId:  Unique id of the command
+        State:  Current meditation state
+    """
+
+    def __init__(self, meditation_state):
+        self.CommandId = str(uuid.uuid4())
+        self.State = meditation_state
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
+
+    def to_string(self):
+        return "({0}, {1})".format(self.CommandId, self.State)
