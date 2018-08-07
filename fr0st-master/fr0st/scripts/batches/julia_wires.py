@@ -14,7 +14,8 @@ def julia_wires():
     # Create new flame
     f = Flame()
     f.gradient.random(hue=(0, 1),saturation=(0, 1),value=(.25, 1),nodes=(4, 6))
-    
+    f.size = 960, 540
+
     # Xform 1
     x = f.add_xform()
     x.linear = 0

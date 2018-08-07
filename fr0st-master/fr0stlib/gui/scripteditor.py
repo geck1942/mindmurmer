@@ -63,7 +63,7 @@ class EditorFrame(wx.Frame):
         self.fav = FavoritesHandler(self)
 
         # Load the default script
-        self.OpenScript(os.path.join(wx.GetApp().UserScriptsDir, 'default.py'))
+        self.OpenScript(os.path.join(wx.GetApp().UserScriptsDir, './mindmurmer/default_eeg.py'))
 
 
     @Bind(wx.EVT_CLOSE)
@@ -240,7 +240,10 @@ class MyLog(wx.TextCtrl):
 
     @InMainFast
     def write(self, message):
-        self.AppendText(message)
+        try:
+            self.AppendText(message)
+        except:
+            pass
 
 
 

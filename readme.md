@@ -9,7 +9,7 @@ the following libraries are required:
 - **numpy**
 - **pyaudio**
 - **PySide**
-- **wxPython** (wx 3.0, not the 4.0)
+- **wxPython 3.0.x** (wxPython 4.0 will be installed using pip. To avoid that, run installer from: https://sourceforge.net/projects/wxpython/files/wxPython/3.0.2.0/)
 - **wave**
 - **swmixer**
 - **aubio** (on windows, Microsoft Visual C++ 9.0 is required. Get it from http://aka.ms/vcpython27)
@@ -19,6 +19,18 @@ the following libraries are required:
 
 - `mindmurmer`
 - `mindmurmer\fr0st-master\fr0stlib\pyflam3\win32_dlls`
+
+### GPU processing with Nvidia CUDA
+Read documentation here https://developer.nvidia.com/how-to-cuda-python
+
+Download and install the CUDA toolkit (1.5GB):
+    https://developer.nvidia.com/cuda-toolkit
+To setup CUDA Python, first install the Anaconda python distribution:
+    https://www.continuum.io/downloads
+Then install the latest version of the Numba package:
+    https://docs.continuum.io/anaconda/packages/pkg-docs
+    
+
 
 ## the fr0st folder
 
