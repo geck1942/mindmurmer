@@ -1,5 +1,5 @@
 ## Dependencies
-1. Please install the `SWMixer` Python packahe by following instructions [here](https://github.com/nwhitehead/swmixer) (install MAD lib too for mp3 support)
+1. Please install the `SWMixer` Python package by following instructions [here](https://github.com/nwhitehead/swmixer) (install MAD lib too for mp3 support)
 
 
 ## Spinning up the Soundscape sound controller demo
