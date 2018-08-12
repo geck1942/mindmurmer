@@ -98,7 +98,7 @@ class MMEngine:
                     # Retreive main color from flame
                     rgb = self.get_flamecolor_rgb()
                     color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
-                    eeg_meditation_state = round(len(self.states_flames) * eegdata.raw_meditatation_state(), 0)
+                    eeg_meditation_state = round(len(self.states_flames) * eegdata.meditation_state, 0)
 
                     #TODO get heartbeat
                     heartbeat = 60
