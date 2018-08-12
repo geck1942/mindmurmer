@@ -1,12 +1,11 @@
 import os
 import logging
 import numpy as np
-from threading import Thread
-
 import swmixer
 import time
 import argparse
 
+from threading import Thread
 from collections import defaultdict
 from aubio import source, sink, pvoc, cvec, tempo, unwrap2pi, float_type
 from numpy import median, diff
