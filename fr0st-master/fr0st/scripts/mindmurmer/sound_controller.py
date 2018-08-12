@@ -6,6 +6,7 @@ import argparse
 
 from threading import Thread
 from collections import defaultdict
+from fr0st.scripts.mindmurmer.rabbit_controller import RabbitController, SoundCommand
 
 
 class MindMurmurSoundScapeController(object):
@@ -25,7 +26,9 @@ class MindMurmurSoundScapeController(object):
 	STAGE_NAME_SPLITTER = "::"
 
 
-	def __init__(self, audio_folder, up_transition_sound_filename, down_transition_sound_filename, sample_rate=16000):
+	def __init__(self, audio_folder, up_transition_sound_filename, down_transition_sound_filename,
+				 sample_rate=16000, bus_host="localhost", bus_port=5672, bus_username='guest',
+				 bus_password='guest', bus_virtualhost='/'):
 		"""
 		:param audio_folder: audio folder with sub folders, each numbers after a meditation state (e.g, 0, 1, 2, 3, ..).
 							 Each folder represents a meditation stage and should contain any tracks
@@ -44,6 +47,8 @@ class MindMurmurSoundScapeController(object):
 		self.tracks_by_stage = defaultdict(list)
 		self.performing_a_mix = False
 		self.mixing_thread = None
+		self.bus = RabbitController(bus_host, bus_port, bus_username, bus_password, bus_virtualhost)
+		self.current_stage = None
 
 		swmixer.init(samplerate=self.SAMPLE_RATE, chunksize=1024, stereo=True)
 		swmixer.start()
@@ -52,6 +57,34 @@ class MindMurmurSoundScapeController(object):
 		self.tracks_last_playing_position = dict()
 
 		self._validate_audio_files_and_prep_data()
+
+		self.bus.consume_sound(self.process_bus_message)
+
+	def process_bus_message(self, channel, method, properties, body):
+		logging.info(("received message with body \"{body}\"").format(body=body))
+
+		command = SoundCommand.from_string(body)
+
+		if command.get_desired_stage() >= 0:
+			desired_stage = command.get_desired_stage()
+			logging.info("parsing request to transition to stage \"{desired_stage}\"".format(
+				desired_stage=desired_stage))
+
+			if desired_stage ==  self.current_stage:
+				logging.info("requested stage is already playing, ignoring")
+			else:
+				stage_track = self._get_meditation_stage_soundscape_track_for_stage(desired_stage)
+				stage_change_direction = desired_stage - (self.current_stage or 0)
+
+				transition_track = (self.up_transition_sound_filename if stage_change_direction > 0 else
+									self.down_transition_sound_filename)
+
+				self._mix_track(stage_track, transition_track)
+				self.current_stage = desired_stage
+		else:
+			logging.info("parsing request to play heartbeat for current stage ({current_stage})".format(
+				current_stage=self.current_stage))
+			self.play_heartbeat_for_stage()
 
 	def stop_all_sounds(self):
 		for track in self.playing_tracks + self.playing_heartbeats + self.playing_transitions:
@@ -210,8 +243,8 @@ class MindMurmurSoundScapeController(object):
 				logging.info("already in stage transition, ignoring")
 
 
-	def play_heartbeat_for_stage(self, stage):
-		stage_heartbeat = self._get_meditation_stage_heartbeat_track_for_stage(stage)
+	def play_heartbeat_for_stage(self):
+		stage_heartbeat = self._get_meditation_stage_heartbeat_track_for_stage(self.current_stage or 0)
 		self._play_heartbeat(stage_heartbeat)
 
 
@@ -234,59 +267,5 @@ if __name__ == "__main__":
 		mmhac = MindMurmurSoundScapeController(args.audio_folder, args.up_transition_sound_filename,
 											   args.down_transition_sound_filename, args.sample_rate)
 
-		logging.info("requesting to set mode to 0")
-		mmhac.set_meditation_stage(-1, 0)
-		logging.info("requested to set mode to 0")
-
-		logging.info("setting mode to 1, stage should still be in transition so this should be ignored")
-		mmhac.set_meditation_stage(0, 1)
-
-		for i in range(4):
-			time.sleep(2)
-			mmhac.play_heartbeat_for_stage(0)
-
-		logging.info("requesting to set mode to 0, nothing should change")
-		mmhac.set_meditation_stage(0, 0)
-		logging.info("requested to set mode to 0")
-
-		logging.info("requesting to set mode to 1")
-		mmhac.set_meditation_stage(0, 1)
-		logging.info("requested to set mode to 1")
-		time.sleep(20)
-
-		for i in range(4):
-			time.sleep(2)
-			mmhac.play_heartbeat_for_stage(1)
-
-		logging.info("requesting to set mode to 0")
-		mmhac.set_meditation_stage(1, 0)
-		logging.info("requested to set mode to 0")
-		time.sleep(20)
-
-		for i in range(4):
-			time.sleep(2)
-			mmhac.play_heartbeat_for_stage(0)
-
-
-		for i in range(1, 6):
-			logging.info("requesting to set mode to {!s}".format(i))
-			mmhac.set_meditation_stage(i - 1, i)
-			logging.info("requested to set mode to {!s}".format(i))
-			time.sleep(20)
-
-			for m in range(4):
-				time.sleep(2)
-				mmhac.play_heartbeat_for_stage(i)
-
-			logging.info("requesting to set mode to {!s}".format(i - 1))
-			mmhac.set_meditation_stage(i, i - 1)
-			logging.info("requested to set mode to {!s}".format(i - 1))
-			time.sleep(20)
-
-			for j in range(4):
-				time.sleep(2)
-				mmhac.play_heartbeat_for_stage(i - 1)
-
-		mmhac.stop_all_sounds()
 	except Exception, e:
 		logging.exception(e)
