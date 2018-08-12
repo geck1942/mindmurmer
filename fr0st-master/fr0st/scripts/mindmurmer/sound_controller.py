@@ -1,166 +1,11 @@
 import os
 import logging
-import numpy as np
 import swmixer
 import time
 import argparse
 
 from threading import Thread
 from collections import defaultdict
-from aubio import source, sink, pvoc, cvec, tempo, unwrap2pi, float_type
-from numpy import median, diff
-
-
-class AudioUtility(object):
-	@staticmethod
-	def get_track_bmp(path, params=None):
-		""" Calculate the beats per minute (bpm) of a given file.
-			path: path to the file
-			param: dictionary of parameters
-		"""
-		if params is None:
-			params = {}
-
-		# default:
-		sample_rate, win_s, hop_s = 16000, 1024, 512
-
-		if 'mode' in params:
-			if params.mode in ['super-fast']:
-				# super fast
-				sample_rate, win_s, hop_s = 4000, 128, 64
-			elif params.mode in ['fast']:
-				# fast
-				sample_rate, win_s, hop_s = 8000, 512, 128
-			elif params.mode in ['default']:
-				pass
-			else:
-				print("unknown mode {:s}".format(params.mode))
-
-		# manual settings
-		if 'samplerate' in params:
-			sample_rate = params.samplerate
-		if 'win_s' in params:
-			win_s = params.win_s
-		if 'hop_s' in params:
-			hop_s = params.hop_s
-
-		s = source(path, sample_rate, hop_s)
-		sample_rate = s.samplerate
-		o = tempo("specdiff", win_s, hop_s, sample_rate)
-		# List of beats, in samples
-		beats = []
-		# Total number of frames read
-		total_frames = 0
-
-		while True:
-			samples, read = s()
-			is_beat = o(samples)
-			if is_beat:
-				this_beat = o.get_last_s()
-				beats.append(this_beat)
-			# if o.get_confidence() > .2 and len(beats) > 2.:
-			#    break
-			total_frames += read
-			if read < hop_s:
-				break
-
-		def beats_to_bpm(beats, path):
-			# if enough beats are found, convert to periods then to bpm
-			if len(beats) > 1:
-				if len(beats) < 4:
-					print("few beats found in {:s}".format(path))
-				bpms = 60. / diff(beats)
-				return median(bpms)
-			else:
-				logging.info("not enough beats found in {:s}".format(path))
-				return 0
-
-		return beats_to_bpm(beats, path)
-
-	@staticmethod
-	def alter_track_tempo(source_filename, output_filename, rate, sample_rate=0):
-		win_s = 512
-		hop_s = win_s // 8  # 87.5 % overlap
-
-		warm_up = win_s // hop_s - 1
-		source_in = source(source_filename, sample_rate, hop_s)
-		sample_rate = source_in.samplerate
-		p = pvoc(win_s, hop_s)
-
-		sink_out = sink(output_filename, sample_rate)
-
-		# excepted phase advance in each bin
-		phi_advance = np.linspace(0, np.pi * hop_s, win_s / 2 + 1).astype(float_type)
-
-		old_grain = cvec(win_s)
-		new_grain = cvec(win_s)
-
-		block_read = 0
-		interp_read = 0
-		interp_block = 0
-
-		while True:
-			samples, read = source_in()
-			cur_grain = p(samples)
-
-			if block_read == 1:
-				phas_acc = old_grain.phas
-
-			# print "block_read", block_read
-			while True and (block_read > 0):
-				if interp_read >= block_read:
-					break
-				# print "`--- interp_block:", interp_block,
-				# print 'at orig_block', interp_read, '<- from', block_read - 1, block_read,
-				# print 'old_grain', old_grain, 'cur_grain', cur_grain
-				# time to compute interp grain
-				frac = 1. - np.mod(interp_read, 1.0)
-
-				# compute interpolated frame
-				new_grain.norm = frac * old_grain.norm + (1. - frac) * cur_grain.norm
-				new_grain.phas = phas_acc
-
-				# psola
-				samples = p.rdo(new_grain)
-				if interp_read > warm_up:  # skip the first frames to warm up phase vocoder
-					# write to sink
-					sink_out(samples, hop_s)
-
-				# calculate phase advance
-				dphas = cur_grain.phas - old_grain.phas - phi_advance
-				# unwrap angle to [-pi; pi]
-				dphas = unwrap2pi(dphas)
-				# cumulate phase, to be used for next frame
-				phas_acc += phi_advance + dphas
-
-				# prepare for next interp block
-				interp_block += 1
-				interp_read = interp_block * rate
-				if interp_read >= block_read:
-					break
-
-			# copy cur_grain to old_grain
-			old_grain.norm = np.copy(cur_grain.norm)
-			old_grain.phas = np.copy(cur_grain.phas)
-
-			# until end of file
-			if read < hop_s: break
-			# increment block counter
-			block_read += 1
-
-		for t in range(warm_up + 2):  # purge the last frames from the phase vocoder
-			new_grain.norm[:] = 0
-			new_grain.phas[:] = 0
-			samples = p.rdo(new_grain)
-			sink_out(samples, read if t == warm_up + 1 else hop_s)
-
-		# just to make sure
-		source_in.close()
-		sink_out.close()
-
-		format_out = "read {:d} blocks from {:s} at {:d}Hz and rate {:f}, wrote {:d} blocks to {:s}"
-		logging.info(format_out.format(block_read, source_filename, sample_rate, rate,
-									   interp_block, output_filename))
 
 
 class MindMurmurSoundScapeController(object):
@@ -377,8 +222,6 @@ if __name__ == "__main__":
 						help="filename for up_transition_sound_filename")
 	parser.add_argument('--down_transition_sound_filename', dest='down_transition_sound_filename',
 						help="filename for down_transition_sound_filename")
-	parser.add_argument('--create_multi_tempo_versions', dest='create_multi_tempo_versions', action='store_true',
-						default=False, help='create multi tempo versions of each track in --audio_folder')
 	parser.add_argument('--sample_rate', dest='sample_rate', help="The sample rate for audio files", default=16000)
 
 	log_format = ('%(asctime)s %(filename)s %(lineno)s %(process)d %(levelname)s: %(message)s')
@@ -387,71 +230,63 @@ if __name__ == "__main__":
 
 	args = parser.parse_args()
 
-	if args.create_multi_tempo_versions:
-		for bpm in range(10, 185, 5):
-			scale = bpm / 60.0
-			output_filename = "{filename}_{bpm}.{file_suffix}".format(
-				bpm=bpm, filename=args.sound_filename.split(".")[0], file_suffix=args.sound_filename.split(".")[-1])
-			logging.info("rendering sound with bpm: {!s}".format(bpm))
-			AudioUtility.alter_track_tempo(args.sound_filename, output_filename, scale)
-	else:
-		try:
-			mmhac = MindMurmurSoundScapeController(args.audio_folder, args.up_transition_sound_filename,
-												   args.down_transition_sound_filename, args.sample_rate)
+	try:
+		mmhac = MindMurmurSoundScapeController(args.audio_folder, args.up_transition_sound_filename,
+											   args.down_transition_sound_filename, args.sample_rate)
 
-			logging.info("requesting to set mode to 0")
-			mmhac.set_meditation_stage(-1, 0)
-			logging.info("requested to set mode to 0")
+		logging.info("requesting to set mode to 0")
+		mmhac.set_meditation_stage(-1, 0)
+		logging.info("requested to set mode to 0")
 
-			logging.info("setting mode to 1, stage should still be in transition so this should be ignored")
-			mmhac.set_meditation_stage(0, 1)
+		logging.info("setting mode to 1, stage should still be in transition so this should be ignored")
+		mmhac.set_meditation_stage(0, 1)
 
-			for i in range(4):
-				time.sleep(2)
-				mmhac.play_heartbeat_for_stage(0)
+		for i in range(4):
+			time.sleep(2)
+			mmhac.play_heartbeat_for_stage(0)
 
-			logging.info("requesting to set mode to 0, nothing should change")
-			mmhac.set_meditation_stage(0, 0)
-			logging.info("requested to set mode to 0")
+		logging.info("requesting to set mode to 0, nothing should change")
+		mmhac.set_meditation_stage(0, 0)
+		logging.info("requested to set mode to 0")
 
-			logging.info("requesting to set mode to 1")
-			mmhac.set_meditation_stage(0, 1)
-			logging.info("requested to set mode to 1")
+		logging.info("requesting to set mode to 1")
+		mmhac.set_meditation_stage(0, 1)
+		logging.info("requested to set mode to 1")
+		time.sleep(20)
+
+		for i in range(4):
+			time.sleep(2)
+			mmhac.play_heartbeat_for_stage(1)
+
+		logging.info("requesting to set mode to 0")
+		mmhac.set_meditation_stage(1, 0)
+		logging.info("requested to set mode to 0")
+		time.sleep(20)
+
+		for i in range(4):
+			time.sleep(2)
+			mmhac.play_heartbeat_for_stage(0)
+
+
+		for i in range(1, 6):
+			logging.info("requesting to set mode to {!s}".format(i))
+			mmhac.set_meditation_stage(i - 1, i)
+			logging.info("requested to set mode to {!s}".format(i))
 			time.sleep(20)
 
-			for i in range(4):
+			for m in range(4):
 				time.sleep(2)
-				mmhac.play_heartbeat_for_stage(1)
+				mmhac.play_heartbeat_for_stage(i)
 
-			logging.info("requesting to set mode to 0")
-			mmhac.set_meditation_stage(1, 0)
-			logging.info("requested to set mode to 0")
+			logging.info("requesting to set mode to {!s}".format(i - 1))
+			mmhac.set_meditation_stage(i, i - 1)
+			logging.info("requested to set mode to {!s}".format(i - 1))
 			time.sleep(20)
 
-			for i in range(4):
+			for j in range(4):
 				time.sleep(2)
-				mmhac.play_heartbeat_for_stage(0)
+				mmhac.play_heartbeat_for_stage(i - 1)
 
-
-			for i in range(1, 6):
-				logging.info("requesting to set mode to {!s}".format(i))
-				mmhac.set_meditation_stage(i - 1, i)
-				logging.info("requested to set mode to {!s}".format(i))
-				time.sleep(20)
-
-				for m in range(4):
-					time.sleep(2)
-					mmhac.play_heartbeat_for_stage(i)
-
-				logging.info("requesting to set mode to {!s}".format(i - 1))
-				mmhac.set_meditation_stage(i, i - 1)
-				logging.info("requested to set mode to {!s}".format(i - 1))
-				time.sleep(20)
-
-				for j in range(4):
-					time.sleep(2)
-					mmhac.play_heartbeat_for_stage(i - 1)
-
-			mmhac.stop_all_sounds()
-		except Exception, e:
-			logging.exception(e)
+		mmhac.stop_all_sounds()
+	except Exception, e:
+		logging.exception(e)
