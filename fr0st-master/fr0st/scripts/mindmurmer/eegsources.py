@@ -1,11 +1,16 @@
 import random
 import numpy as np
 import json
+import threading
+
+from rabbit_controller import RabbitController
 
 class EEGData():
     # inline values
     def __init__(self, values):
-
+        
+        if(values is None):
+            values = [0,0,0,0,0,0]
         self.values = values
         # 5 waves * n channels + blink
         self.channels = (len(values)-1) / 5
@@ -53,7 +58,9 @@ class EEGSource(object):
         
     def read_data(self):
         # add new EEGdata to history
-        self.data_history.append(self.read_new_data())
+        data = self.read_new_data()
+        if (data is not None):
+            self.data_history.append(data)
         # and return it
         return self.get_smooth_data()
     
@@ -140,11 +147,11 @@ class EEGFromJSONFile(EEGSource):
                 self.raw_data = []
 
                 for i in range(self.sample_length):
-                    eeg_sample_data = (json_data['timeseries']['alpha_relative']['samples'][i] +
-                                       json_data['timeseries']['beta_relative']['samples'][i] +
-                                       json_data['timeseries']['gamma_relative']['samples'][i] +
-                                       json_data['timeseries']['delta_relative']['samples'][i] +
-                                       json_data['timeseries']['theta_relative']['samples'][i] +
+                    eeg_sample_data = (json_data['timeseries']['alpha_absolute']['samples'][i] +
+                                       json_data['timeseries']['beta_absolute' ]['samples'][i] +
+                                       json_data['timeseries']['gamma_absolute']['samples'][i] +
+                                       json_data['timeseries']['delta_absolute']['samples'][i] +
+                                       json_data['timeseries']['theta_absolute']['samples'][i] +
                                        json_data['timeseries']['blink']['samples'][i])
                     self.raw_data.append(EEGData(eeg_sample_data))
         except Exception as jsonex:
@@ -160,6 +167,33 @@ class EEGFromJSONFile(EEGSource):
         self.sample_index += 1
 
         return sample_data
+
+class EEGFromRabbitMQ(EEGSource):
+    def __init__(self, host, port, user, password, virtualhost):
+        super(EEGFromRabbitMQ, self).__init__()
+        print('EEGFromRabbitMQ Started')
+        # open json file
+
+        # Access the CLODUAMQP_URL environment variable and parse it (fallback to localhost)
+        self.rabbit = RabbitController(host, port, user, password, virtualhost)
+        self.latest_data = None
+        self.listening_task = threading.Thread(name="eeg_data", 
+                                               target=self.listen)
+        self.listening_task.start()
+
+    def listen(self):
+        self.rabbit.subscribe_eegdata(self.rabbitcallback)
+
+
+    def rabbitcallback(self, ch, method, properties, body):
+        if(body is None or body == ''):
+            return
+        command = json.loads(body)
+        self.latest_data = EEGData(command['Values'])
+        print("received latest EEG Data: %s" %(repr(command['Values'])))
+    # iterate samples
+    def read_new_data(self):
+        return self.latest_data
 
 class EEGFromAudioFile(EEGSource):
     def __init__(self, audio_source):

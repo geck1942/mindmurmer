@@ -9,19 +9,45 @@ class RabbitController(object):
     def __init__(self, host, port, user, password, virtualhost):
 
         self.QUEUE_NAME_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain_colorCommand'
-        self.QUEUE_NAME_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain_heartRateCommand'
-        self.QUEUE_NAME_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain_meditationStateCommand'
         self.EXCHANGE_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain'
+        self.QUEUE_NAME_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain_heartRateCommand'
         self.EXCHANGE_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain'
+        self.QUEUE_NAME_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain_meditationStateCommand'
         self.EXCHANGE_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain'
+        self.QUEUE_NAME_EEGDATA = 'MindMurmur.Domain.Messages.EEGDataCommand, MindMurmur.Domain_eegdataCommand'
+        self.EXCHANGE_EEGDATA = 'MindMurmur.Domain.Messages.EEGDataCommand, MindMurmur.Domain'
 
         self.credentials = pika.PlainCredentials(user, password)
         self.parameters = pika.ConnectionParameters(host, port, virtualhost, self.credentials)
         self.color_props = pika.BasicProperties(type=self.EXCHANGE_COLOR, delivery_mode=2)
         self.heart_props = pika.BasicProperties(type=self.EXCHANGE_HEART, delivery_mode=2)
         self.state_props = pika.BasicProperties(type=self.EXCHANGE_STATE, delivery_mode=2)
+        self.eegdata_props = pika.BasicProperties(type=self.EXCHANGE_EEGDATA, delivery_mode=2)
 
         return
+
+    def subscribe_eegdata(self, callback):
+        try:
+            
+            self.open_channel()
+
+            self.active_channel.queue_declare(queue=self.EXCHANGE_EEGDATA)
+            print("eegdata channel opened: %s" %(self.EXCHANGE_EEGDATA))
+            self.active_channel.basic_consume(callback, 
+                                    queue=self.EXCHANGE_EEGDATA,
+                                    no_ack= True)
+            self.active_channel.start_consuming()
+
+            # self.active_channel.start_consuming()
+            print("eegdata channel terminated: %s" %(self.EXCHANGE_EEGDATA))
+            # print(" [x] Sent color message %r {0}" % color)
+        except Exception as e:
+            print(repr(e))
+            # do not raise exception. Channel probably not ready
+            # raise e
+        finally:
+            if self.open_connection:
+                self.open_connection.close()
 
     def publish_color(self, color):
         try:
@@ -74,6 +100,24 @@ class RabbitController(object):
                                     body=state_com.to_json())
 
             # print(" [x] Sent meditation_state message %r {0}" % meditation_state)
+        except Exception as e:
+            print(repr(e))
+            raise e
+        finally:
+            if self.open_connection:
+                self.open_connection.close()
+
+    def publish_eegdata(self, eegdata_values):
+        try:
+            eegdata_com = EEGDataCommand(eegdata_values)
+
+            self.open_channel()
+            self.active_channel.queue_declare(queue=self.EXCHANGE_EEGDATA)
+            self.active_channel.basic_publish(exchange='',
+                                    properties=self.eegdata_props,
+                                    routing_key=self.EXCHANGE_EEGDATA,
+                                    body=eegdata_com.to_json())
+
         except Exception as e:
             print(repr(e))
             raise e
@@ -154,3 +198,21 @@ class MeditationStateCommand(object):
 
     def to_string(self):
         return "({0}, {1})".format(self.CommandId, self.State)
+
+class EEGDataCommand(object):
+    """An instance of a eeg data command
+
+    Attributes:
+        CommandId:  Unique id of the command
+        Values:  raw values
+    """
+
+    def __init__(self, eegdata_values):
+        self.CommandId = str(uuid.uuid4())
+        self.Values = eegdata_values
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
+
+    def to_string(self):
+        return "({0}, {1})".format(self.CommandId, self.Values)
