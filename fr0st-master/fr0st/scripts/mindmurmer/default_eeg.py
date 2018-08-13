@@ -45,7 +45,7 @@ class MMEngine:
         # init rabbitMQ connection
         self.rabbit = RabbitController('localhost', 5672, 'guest', 'guest', '/')
 
-        self.audio_controller = MindMurmurSoundScapeController(audio_folder)
+        # self.audio_controller = MindMurmurSoundScapeController(audio_folder)
         self.input_controller = InputController(self)
 
         # attach keyboard events.
@@ -57,23 +57,24 @@ class MMEngine:
 
     def start(self):
         # ask for input
-        self.show_input()
+        self.retreive_params()
         # hide UI
         # self.gui.Hide()
         # show GUI preview Window
         self.gui.previewframe.Show()
         self.gui.previewframe.ShowFullScreen(True)
+        self.gui.previewframe.SetWindowStyle(self.gui.previewframe.GetWindowStyle() | wx.STAY_ON_TOP)
         time.sleep(0.040)
         # fullscreen
         # self.gui.previewframe.ShowFullScreen(True)
 
         # time.sleep(0.400)
-        self.gui.previewframe.SetFocus()
         # start loop
         self.flame = self.load_flame(self.states_flames[0])
         self.frame_index = 0
         self.frame_index_sincestate = 0
         self.keeprendering = True
+
         while self.keeprendering:
             try:
                 # fps timer
@@ -157,9 +158,9 @@ class MMEngine:
            
         # hide GUI preview Window
         self.gui.Show()
-        # self.gui.previewframe.Hide()
+        self.gui.previewframe.Hide()
         self.gui.previewframe.ShowFullScreen(False)
-
+        self.gui.previewframe.SetWindowStyle(self.gui.previewframe.GetWindowStyle() & ~wx.STAY_ON_TOP)
         # set gobal variable to visualize final falame
         self.gui.flame = self.flame
 
@@ -203,9 +204,11 @@ class MMEngine:
             return [0,0,0]
         return [int(r / weight), int(g / weight), int(b / weight)]
     
-    def show_input(self):
+    def retreive_params(self, show_dialog = False):
         flames = get_flames()
-        res = dialog("Choose settings.\n\n(Keyframe interval = 0 "
+        if(show_dialog):
+        
+            res = dialog("Choose settings.\n\n(Keyframe interval = 0 "
                  "uses the time attribute of each flame instead "
                  "of a fixed interval)",
                  ("MEDITATION STATE 0", flames, 1),
@@ -214,7 +217,10 @@ class MMEngine:
                  ("MEDITATION STATE 3", flames, 4),
                  ("MEDITATION STATE 4", flames, 5),
                  ("MEDITATION STATE 5", flames, 6))
-        self.states_flames = res
+            self.states_flames = res
+        else:
+            self.states_flames = flames[1:7]
+
         if len(self.states_flames) < 2:
             raise ValueError("Need to select at least 2 flames")
         return

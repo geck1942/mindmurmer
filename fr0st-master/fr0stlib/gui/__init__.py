@@ -162,7 +162,7 @@ class Fr0stApp(wx.App):
 
         self.MainWindow = MainWindow(None, wx.ID_ANY)
         wx.App.MainLoop(self)
-
+        
     @property
     def UserParametersDir(self):
         return os.path.join(self.user_dir, 'parameters')
@@ -297,6 +297,11 @@ class MainWindow(wx.Frame):
         # Need to call this after Show(True), so it will zoom to the right size
         self.canvas.ZoomToFit()
 
+        # MINDMURMUR auto-start
+        self.OnRunScript(None)
+        self.previewframe.Show(True)
+        self.previewframe.Restore()
+        self.previewframe.RequestUserAttention()
 
 #-----------------------------------------------------------------------------
 # Event handlers
