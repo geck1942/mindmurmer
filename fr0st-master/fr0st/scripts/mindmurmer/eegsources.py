@@ -10,10 +10,10 @@ class EEGData():
     def __init__(self, values):
         
         if(values is None):
-            values = [0,0,0,0,0,0]
+            values = [0,0,0,0,0,0,0]
         self.values = values
-        # 5 waves * n channels + blink
-        self.channels = (len(values)-1) / 5
+        # 5 waves * n channels + blink + med_state
+        self.channels = (len(values)-2) / 5
         # each waves is average of 4 channels
         self.alpha = np.average(values[self.channels * 0 : self.channels * 1])
         self.beta  = np.average(values[self.channels * 1 : self.channels * 2])
@@ -22,29 +22,16 @@ class EEGData():
         self.theta = np.average(values[self.channels * 4 : self.channels * 5])
         self.raw_waves = values[0 : self.channels * 5]
         
-        # blink
-        self.blink = values[self.channels * 5]
+        # blink is 0 or 1
+        self.blink = values[-2]
+        # meditation_state is a value between 0 and 1
+        self.meditation_state = values[-1]
+
         # sum of the 5 waves
         self.waves = [self.alpha, self.beta, self.gamma, self.delta, self.theta]
 
-    # return a value from 0 (low) to 1 (deep meditation)
-    # based on the waves data (timeless data)
-    def raw_meditatation_state(self):
-        meditate = 0
-        # (coeff = 5) main   values are forehead alpha and forehead theta
-        meditate = meditate + (self.raw_waves[1] * 5) + (self.raw_waves[2] * 5)
-        meditate = meditate + (self.raw_waves[17] * 5) + (self.raw_waves[18] * 5)
-        # (coeff = 2) second values are frontal alpha & theta coherence
-        meditate = meditate + (1 - abs(self.raw_waves[1] - self.raw_waves[17])) * 2
-        meditate = meditate + (1 - abs(self.raw_waves[2] - self.raw_waves[18])) * 2
-        # (coeff = 1) third  values are headside alpha and headside theta
-        meditate = meditate + (self.raw_waves[0] * 1) + (self.raw_waves[3] * 1)
-        meditate = meditate + (self.raw_waves[16] * 1) + (self.raw_waves[19] * 1)
-        
-        return meditate / 28 # 5+5+5+5 + 2+2 + 1+1+1+1
-
     def console_string(self):
-        return "".join(format(int(wav*10)) for wav in self.waves) + " - " + format(round(self.raw_meditatation_state(),1))
+        return "".join(format(int(wav*10)) for wav in self.waves) + " - " + format(round(self.meditation_state,1))
     
 
 class EEGSource(object):
@@ -90,12 +77,6 @@ class EEGSource(object):
         for i in range(len(lastvalues[0])):
             avgvalues.append(sum(values[i] for values in lastvalues) / len(lastvalues))
         return EEGData(avgvalues)
-
-    
-    def get_meditation_state(self):
-        raw_state = self.get_data().raw_meditatation_state()
-        return raw_state
-
     
 
 
@@ -190,7 +171,7 @@ class EEGFromRabbitMQ(EEGSource):
             return
         command = json.loads(body)
         self.latest_data = EEGData(command['Values'])
-        print("received latest EEG Data: %s" %(repr(command['Values'])))
+        # print("received latest EEG Data: %s" %(repr(command['Values'])))
     # iterate samples
     def read_new_data(self):
         return self.latest_data

@@ -58,13 +58,13 @@ def clamp(percent, outrange_min = 0, outrange_max = 1, overflow = False):
     return (percent * delta) + outrange_min
 
 def easing_cubic(percent, minvalue = 0, maxvalue = 1):
-    percent *= 2
-    if(percent < 1) : return ((maxvalue - minvalue) / 2) * percent * percent * percent + minvalue
+    percent *= 2.
+    if(percent < 1) : return ((maxvalue - minvalue) / 2.) * percent * percent * percent + minvalue
     percent -= 2
-    return ((maxvalue - minvalue) / 2) * (percent * percent * percent + 2) + minvalue
+    return ((maxvalue - minvalue) / 2.) * (percent * percent * percent + 2) + minvalue
 
 def easing_square(percent, minvalue = 0, maxvalue = 1):
-    percent *= 2
-    if(percent < 1) : return ((maxvalue - minvalue) / 2) * percent * percent + minvalue
+    percent *= 2.
+    if(percent < 1) : return ((maxvalue - minvalue) / 2.) * percent * percent + minvalue
     percent -= 2
-    return ((maxvalue - minvalue) / 2) * (percent * percent + 2) + minvalue
+    return ((maxvalue - minvalue) / 2.) * (percent * percent + 2) + minvalue

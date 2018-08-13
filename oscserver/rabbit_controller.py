@@ -93,7 +93,7 @@ class RabbitController(object):
             state_com = MeditationStateCommand(meditation_state)
 
             self.open_channel()
-            self.active_channel.exchange_declare(exchange=self.EXCHANGE_STATE, passive=True)
+            self.active_channel.exchange_declare(exchange=self.EXCHANGE_STATE)
             self.active_channel.basic_publish(exchange=self.EXCHANGE_STATE,
                                     properties=self.state_props,
                                     routing_key='',
