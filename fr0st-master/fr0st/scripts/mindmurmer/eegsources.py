@@ -171,7 +171,7 @@ class EEGFromRabbitMQ(EEGSource):
             return
         command = json.loads(body)
         self.latest_data = EEGData(command['Values'])
-        print("received latest EEG Data: %s" %(repr(command['Values'])))
+        # print("received latest EEG Data: %s" %(repr(command['Values'])))
     # iterate samples
     def read_new_data(self):
         return self.latest_data

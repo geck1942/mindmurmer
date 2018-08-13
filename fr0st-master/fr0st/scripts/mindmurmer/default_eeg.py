@@ -7,7 +7,7 @@ from fr0stlib import Flame
 from fr0stlib.render import save_image
 from fr0stlib.pyflam3 import Genome, byref, flam3_interpolate
 
-from utils import get_scriptpath
+from utils import get_scriptpath, easing_cubic
 from eegsources import *
 from rabbit_controller import RabbitController
 from sound_controller import MindMurmurSoundScapeController
@@ -98,27 +98,29 @@ class MMEngine:
                     # Retreive main color from flame
                     rgb = self.get_flamecolor_rgb()
                     color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
-                    eeg_meditation_state = round(len(self.states_flames) * eegdata.meditation_state, 0)
 
                     #TODO get heartbeat
                     heartbeat = 60
                     
 
                     # new meditation state reached
-                    if(self.meditation_state != eeg_meditation_state \
+                    if(self.meditation_state != eegdata.meditation_state \
                         # -- do not apply if transitionning flames
                         and len(self.incomming_flames) == 0 \
                         # -- neither if transitionned less than a minute ago
-                        and self.frame_index_sincestate > self.maxfps * 60):
+                        and self.frame_index_sincestate > self.maxfps * 30):
+
+                        print("TRANSITION TO STATE %s" %(eegdata.meditation_state))
                         # generate 25 transition flames
-                        target_flame_index = int(eeg_meditation_state)
-                        for i in range(0, 25):
-                            lerp_pct = i / 25.
+                        target_flame_index = eegdata.meditation_state
+                        for i in range(0, 250 + 1):
+                            lerp_pct = easing_cubic(i / 250.)
                             inter_flame = self.load_flame(self.flame, self.states_flames[target_flame_index], lerp_pct)
-                            self.incomming_flames.append(inter_flame)
+                            if(inter_flame is not None):
+                                self.incomming_flames.append(inter_flame)
 
                         # save state
-                        self.meditation_state = eeg_meditation_state
+                        self.meditation_state = eegdata.meditation_state
                         self.frame_index_sincestate = 0
                     
                     # update status bar
@@ -126,7 +128,7 @@ class MMEngine:
                                 %(self.frame_index, 
                                 color.red, color.green, color.blue,
                                 eegdata.console_string() if eegdata is not None else "",
-                                eeg_meditation_state ))
+                                self.meditation_state ))
 
                     # send data to RabbitMQ bus
                     self.rabbit.publish_heart(heartbeat)
@@ -206,34 +208,40 @@ class MMEngine:
         res = dialog("Choose settings.\n\n(Keyframe interval = 0 "
                  "uses the time attribute of each flame instead "
                  "of a fixed interval)",
-                 ("MEDITATION STATE 0", flames, 0),
-                 ("MEDITATION STATE 1", flames, 1),
-                 ("MEDITATION STATE 2", flames, 2),
-                 ("MEDITATION STATE 3", flames, 3),
-                 ("MEDITATION STATE 4", flames, 4),
-                 ("MEDITATION STATE 5", flames, 5))
+                 ("MEDITATION STATE 0", flames, 1),
+                 ("MEDITATION STATE 1", flames, 2),
+                 ("MEDITATION STATE 2", flames, 3),
+                 ("MEDITATION STATE 3", flames, 4),
+                 ("MEDITATION STATE 4", flames, 5),
+                 ("MEDITATION STATE 5", flames, 6))
         self.states_flames = res
         if len(self.states_flames) < 2:
             raise ValueError("Need to select at least 2 flames")
         return
 
     # lerp is interpolation percentage [0 - 1] between origin and target
-    def load_flame(self, flame_origin, flame_target = None, lerp = 0):
-        if(lerp == 0 or flame_target is None):
-            return flame_origin
-        elif(lerp == 1 or flame_origin is None):
-            return flame_target
-        else:                   
-            # interpolation:
-            from fr0stlib.render import to_string as flame_to_string
-            flame_origin.time = 0
-            flame_target.time = 1
-            flames_lerp = [flame_origin, flame_target]
-            flames_str = "<flames>%s</flames>" % "".join(map(flame_to_string, flames_lerp))
-            genomes, ngenomes = Genome.from_string(flames_str)           
-            targetflame = Genome()
-            flam3_interpolate(genomes, ngenomes, lerp, 0, byref(targetflame))
-            return Flame(targetflame.to_string())
+    def load_flame(self, flame_origin, flame_target = None, lerp = 0.0):
+        try:
+            if(lerp == 0.0 or flame_target is None):
+                return flame_origin
+            elif(lerp == 1.0 or flame_origin is None):
+                return flame_target
+            else:        
+                # interpolation:
+                from fr0stlib.render import to_string as flame_to_string
+                flame_origin.time = 0
+                flame_target.time = 1
+                flames_lerp = [flame_origin, flame_target]
+                flames_str = "<flames>%s</flames>" % "".join(map(flame_to_string, flames_lerp))
+                genomes, ngenomes = Genome.from_string(flames_str)           
+                targetflame = Genome()
+                flam3_interpolate(genomes, ngenomes, lerp, 0, byref(targetflame))
+                return Flame(targetflame.to_string())
+        except Exception as ex:
+            import traceback
+            print('error during interpolation at %s: %s' %(lerp, str(ex)))
+            traceback.print_exc()
+            return None
         
     # process new EEGData and animate flame
     def animate(self, eegdata):

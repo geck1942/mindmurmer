@@ -95,7 +95,10 @@ class ThreadingOscUDPServer(socketserver.ThreadingMixIn, OscUDPServer):
         meditate = meditate + (self.alpha[0] * 1) + (self.alpha[3] * 1)
         meditate = meditate + (self.theta[0] * 1) + (self.theta[3] * 1)
         
-        return meditate / 28 # 5+5+5+5 + 2+2 + 1+1+1+1
+        meditate /= 28.  # 5+5+5+5 + 2+2 + 1+1+1+1
+        if(meditate < 0): meditate = 0
+        if(meditate > 1): meditate = 1        
+        return int(round(meditate * 5, 0))
 
 
 if __name__ == '__main__':
