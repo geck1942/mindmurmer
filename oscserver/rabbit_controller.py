@@ -1,7 +1,7 @@
 import pika
 import json
 import uuid
-
+import logging
 
 
 class RabbitController(object):
@@ -9,13 +9,15 @@ class RabbitController(object):
     def __init__(self, host, port, user, password, virtualhost):
 
         self.QUEUE_NAME_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain_colorCommand'
-        self.EXCHANGE_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain'
         self.QUEUE_NAME_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain_heartRateCommand'
-        self.EXCHANGE_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain'
+        self.QUEUE_NAME_SOUND = 'MindMurmur.Domain.Messages.SoundCommand, MindMurmur.Domain_SoundCommand'
         self.QUEUE_NAME_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain_meditationStateCommand'
-        self.EXCHANGE_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain'
         self.QUEUE_NAME_EEGDATA = 'MindMurmur.Domain.Messages.EEGDataCommand, MindMurmur.Domain_eegdataCommand'
+        self.EXCHANGE_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain'
+        self.EXCHANGE_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain'
+        self.EXCHANGE_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain'
         self.EXCHANGE_EEGDATA = 'MindMurmur.Domain.Messages.EEGDataCommand, MindMurmur.Domain'
+        self.EXCHANGE_SOUND = 'MindMurmur.Domain.Messages.SoundCommand, MindMurmur.Domain'
 
         self.credentials = pika.PlainCredentials(user, password)
         self.parameters = pika.ConnectionParameters(host, port, virtualhost, self.credentials)
@@ -23,6 +25,7 @@ class RabbitController(object):
         self.heart_props = pika.BasicProperties(type=self.EXCHANGE_HEART, delivery_mode=2)
         self.state_props = pika.BasicProperties(type=self.EXCHANGE_STATE, delivery_mode=2)
         self.eegdata_props = pika.BasicProperties(type=self.EXCHANGE_EEGDATA, delivery_mode=2)
+        self.sound_props = pika.BasicProperties(type=self.EXCHANGE_SOUND, delivery_mode=2)
 
         return
 
@@ -93,10 +96,11 @@ class RabbitController(object):
             state_com = MeditationStateCommand(meditation_state)
 
             self.open_channel()
-            self.active_channel.exchange_declare(exchange=self.EXCHANGE_STATE)
-            self.active_channel.basic_publish(exchange=self.EXCHANGE_STATE,
+
+            self.active_channel.queue_declare(queue=self.EXCHANGE_STATE)
+            self.active_channel.basic_publish(exchange='',
                                     properties=self.state_props,
-                                    routing_key='',
+                                    routing_key=self.EXCHANGE_STATE,
                                     body=state_com.to_json())
 
             # print(" [x] Sent meditation_state message %r {0}" % meditation_state)
@@ -114,9 +118,9 @@ class RabbitController(object):
             self.open_channel()
             self.active_channel.queue_declare(queue=self.EXCHANGE_EEGDATA)
             self.active_channel.basic_publish(exchange='',
-                                    properties=self.eegdata_props,
-                                    routing_key=self.EXCHANGE_EEGDATA,
-                                    body=eegdata_com.to_json())
+                                              properties=self.eegdata_props,
+                                              routing_key=self.EXCHANGE_EEGDATA,
+                                              body=eegdata_com.to_json())
 
         except Exception as e:
             print(repr(e))
@@ -125,8 +129,39 @@ class RabbitController(object):
             if self.open_connection:
                 self.open_connection.close()
 
+    def publish_sound(self, desired_stage):
+        try:
+            sound_command = SoundCommand(desired_stage)
 
-        
+            self.open_channel()
+            self.active_channel.queue_declare(queue=self.QUEUE_NAME_SOUND)
+            self.active_channel.basic_publish(exchange='',
+                                              properties=self.sound_props,
+                                              routing_key=self.QUEUE_NAME_SOUND,
+                                              body=sound_command.to_json())
+
+            logging.info("sent sound message {desired_stage}".format(desired_stage=desired_stage))
+        except Exception as e:
+            print(repr(e))
+            raise e
+        finally:
+            if self.open_connection:
+                self.open_connection.close()
+
+    def consume_sound(self, callback):
+        try:
+            self.open_channel()
+            self.active_channel.queue_declare(queue=self.QUEUE_NAME_SOUND)
+            self.active_channel.basic_consume(callback, queue=self.QUEUE_NAME_SOUND, no_ack=True)
+
+            logging.info("waiting for sound messages..")
+            self.active_channel.start_consuming()
+        except Exception as e:
+            print(repr(e))
+
+            if self.open_connection:
+                self.open_connection.close()
+
     def open_channel(self):
         try:
             
@@ -193,6 +228,9 @@ class MeditationStateCommand(object):
         self.CommandId = str(uuid.uuid4())
         self.State = meditation_state
 
+    def get_state(self):
+        return self.State
+
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
 
@@ -211,8 +249,36 @@ class EEGDataCommand(object):
         self.CommandId = str(uuid.uuid4())
         self.Values = eegdata_values
 
+    def get_values(self):
+        return self.Values
+
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
 
     def to_string(self):
         return "({0}, {1})".format(self.CommandId, self.Values)
+
+class SoundCommand(object):
+    """An instance of a sound command
+
+    Attributes:
+        CommandId:  Unique id of the command
+        DesiredStage: stage to transition sound to
+    """
+
+    def __init__(self, desired_stage):
+        self.CommandId = str(uuid.uuid4())
+        self.DesiredStage = desired_stage
+
+    @staticmethod
+    def from_string(command_string):
+        return SoundCommand(json.loads(command_string)["DesiredStage"])
+
+    def get_desired_stage(self):
+        return self.DesiredStage
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
+
+    def to_string(self):
+        return "({0}, {1})".format(self.CommandId, self.DesiredStage)

@@ -96,10 +96,11 @@ class RabbitController(object):
             state_com = MeditationStateCommand(meditation_state)
 
             self.open_channel()
-            self.active_channel.exchange_declare(exchange=self.EXCHANGE_STATE, passive=True)
-            self.active_channel.basic_publish(exchange=self.EXCHANGE_STATE,
+
+            self.active_channel.queue_declare(queue=self.EXCHANGE_STATE)
+            self.active_channel.basic_publish(exchange='',
                                     properties=self.state_props,
-                                    routing_key='',
+                                    routing_key=self.EXCHANGE_STATE,
                                     body=state_com.to_json())
 
             # print(" [x] Sent meditation_state message %r {0}" % meditation_state)
@@ -117,9 +118,9 @@ class RabbitController(object):
             self.open_channel()
             self.active_channel.queue_declare(queue=self.EXCHANGE_EEGDATA)
             self.active_channel.basic_publish(exchange='',
-                                    properties=self.eegdata_props,
-                                    routing_key=self.EXCHANGE_EEGDATA,
-                                    body=eegdata_com.to_json())
+                                              properties=self.eegdata_props,
+                                              routing_key=self.EXCHANGE_EEGDATA,
+                                              body=eegdata_com.to_json())
 
         except Exception as e:
             print(repr(e))
@@ -227,6 +228,9 @@ class MeditationStateCommand(object):
         self.CommandId = str(uuid.uuid4())
         self.State = meditation_state
 
+    def get_state(self):
+        return self.State
+
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
 
@@ -244,6 +248,15 @@ class EEGDataCommand(object):
     def __init__(self, eegdata_values):
         self.CommandId = str(uuid.uuid4())
         self.Values = eegdata_values
+
+    def get_values(self):
+        return self.Values
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
+
+    def to_string(self):
+        return "({0}, {1})".format(self.CommandId, self.Values)
 
 class SoundCommand(object):
     """An instance of a sound command

@@ -49,8 +49,17 @@ class OscUDPHandler(socketserver.BaseRequestHandler):
             server.theta = message.params
 
             # ALL 5 values have been received
+            # [>] update the meditation_state
+            server.meditation_state = server.get_meditation_state()
+
             # Send them to the RabbitMQ bus.
             server.send_eegdata()
+
+            # SEND Meditation state level IF changed
+            if(server.previous_state != server.meditation_state):
+                server.previous_state = server.meditation_state
+                server.send_state()
+
 
 
 
@@ -69,21 +78,27 @@ class ThreadingOscUDPServer(socketserver.ThreadingMixIn, OscUDPServer):
         self.delta = [0.0] * 4
         self.theta = [0.0] * 4
         self.blink = [0]
+        self.previous_state = None
+        self.meditation_state = 1
         # init rabbitMQ connection
         self.rabbit = RabbitController('localhost', 5672, 'guest', 'guest', '/')
         super().__init__(*args, **kwargs)
     
     # send values to the bus
     def send_eegdata(self):
-        meditation_state = self.raw_meditation_state()
         allvalues = self.alpha + self.beta + self.gamma + self.delta + self.theta \
-                  + self.blink + [meditation_state]
+                  + self.blink + [self.meditation_state]
         self.rabbit.publish_eegdata(allvalues)
-        print("DATA SENT:  " + repr(allvalues))
+        print("EEGDATA SENT:  " + repr(allvalues))
+
+    # send values to the bus
+    def send_state(self):
+        self.rabbit.publish_state(self.meditation_state)
+        print("STATE SENT:  " + repr(self.meditation_state))
 
     # return a value from 0 (low) to 1 (deep meditation)
     # based on the waves data (timeless data)
-    def raw_meditation_state(self):
+    def get_meditation_state(self):
         meditate = 0
         # (coeff = 5) main   values are forehead alpha and forehead theta
         meditate = meditate + (self.alpha[1] * 5) + (self.alpha[2] * 5)
