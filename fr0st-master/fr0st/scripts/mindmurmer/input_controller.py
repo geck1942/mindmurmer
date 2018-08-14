@@ -21,6 +21,18 @@ class InputController(object):
 
         key_code = event.GetKeyCode()
         print('WXK keycode: %s' %(key_code))
+        # [F1] - STATE 1
+        if key_code == 340:
+            self.engine.set_state(1)
+            event.Skip()            
+        # [F2] - STATE minus
+        if key_code == 341:
+            self.engine.set_state(set_prev = True)
+            event.Skip()            
+        # [F3] - STATE plus
+        if key_code == 342:
+            self.engine.set_state(set_next = True)
+            event.Skip()            
         # [F8] - START
         if key_code == 347:
             self.engine.start()
