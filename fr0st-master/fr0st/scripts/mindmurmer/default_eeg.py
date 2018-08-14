@@ -38,9 +38,9 @@ class MMEngine:
         self.channels = 24
         self.sinelength = 300 # frames
         self.gui = gui
-        self.maxfps = 25 # target frames per second
+        self.maxfps = 20 # target frames per second
         self.states_flames = [ ] * 5
-        self.meditation_state = 0
+        self.meditation_state = 1
 
         # init rabbitMQ connection
         self.rabbit = RabbitController('localhost', 5672, 'guest', 'guest', '/')
@@ -66,17 +66,19 @@ class MMEngine:
         # self.gui.Hide()
         # show GUI preview Window
         self.gui.previewframe.Show()
-        # self.gui.previewframe.ShowFullScreen(True)
-        self.gui.previewframe.SetWindowStyle(self.gui.previewframe.GetWindowStyle() | wx.STAY_ON_TOP)
+        self.gui.previewframe.ShowFullScreen(True)
+        self.gui.previewframe.SetWindowStyle(self.gui.previewframe.GetWindowStyle() | wx.BORDER_NONE | wx.CLIP_CHILDREN)
+        self.gui.previewframe.SetFocus()
         time.sleep(0.040)
         # fullscreen
         # self.gui.previewframe.ShowFullScreen(True)
 
         # time.sleep(0.400)
         # start loop
-        self.flame = self.load_flame(self.states_flames[0])
+        
         self.frame_index = 0
         self.frame_index_sincestate = 0
+        self.set_state(1, False)
         self.keeprendering = True
 
         while self.keeprendering:
@@ -89,65 +91,48 @@ class MMEngine:
                 if(self.transition_pct is not None and self.transition_from is not None and self.transition_to is not None):
                     # apply interpolation transition
                     lerp_pct = easing_cubic(self.transition_pct)
-                    inter_flame = self.load_flame(self.transition_from, self.transition_to, lerp_pct)
+                    newflame = self.load_flame(self.transition_from, self.transition_to, lerp_pct)
+                    if(newflame is not None):
+                        self.flame = newflame
+
                     if(self.transition_pct >= 1):
                         # end of transition
                         self.transition_pct = None
                     else:
                         # add 1 / nth to the transition
                         self.transition_pct += 1 / 250.
-                    self.flame = inter_flame
                 else:
                     # cancel interpolation
                     self.transition_pct = None
                 
-                    # read data
-                    eegdata = self.eeg_source.read_data()
-                                        
-                    if(eegdata is not None):
-                        self.animate(eegdata)
+                # read data
+                eegdata = self.eeg_source.read_data()
+                                    
+                if(eegdata is not None):
 
-                        # Retreive main color from flame
-                        rgb = self.get_flamecolor_rgb()
-                        color = wx.Colour(rgb[0], rgb[1], rgb[2], 1)
+                    # [!] new meditation state reached
+                    if(self.meditation_state != eegdata.meditation_state \
+                        # and if transitionned less than a minute ago
+                        and self.frame_index_sincestate > self.maxfps * 30):
+                        # [>] set new state
+                        self.set_state(eegdata.meditation_state)
 
-                        #TODO get heartbeat
-                        heartbeat = 60
-                        
-
-                        # new meditation state reached
-                        if(self.meditation_state != eegdata.meditation_state \
-                            # -- do not apply if transitionning flames
-                            and len(self.incomming_flames) == 0 \
-                            # -- neither if transitionned less than a minute ago
-                            and self.frame_index_sincestate > self.maxfps * 30):
-
-                            print("TRANSITION TO STATE %s" %(eegdata.meditation_state))
-                            target_flame_index = eegdata.meditation_state
-                            # start transition
-                            self.transition_pct = 0.0
-                            self.transition_from = self.flame
-                            self.transition_to = self.states_flames[target_flame_index]
-
-                            # save state
-                            self.meditation_state = eegdata.meditation_state
-                            self.frame_index_sincestate = 0
-                    
-                        # update status bar
-                        show_status("Frame: %s | Color: %s %s %s | EEG: %s | MEDITATION STATE: %s" 
-                                    %(self.frame_index, 
-                                    color.red, color.green, color.blue,
-                                    eegdata.console_string() if eegdata is not None else "",
-                                    self.meditation_state ))
-
+                    #TODO get heartbeat
+                    heartbeat = 60
                     # send data to RabbitMQ bus
                     self.rabbit.publish_heart(heartbeat)
-                    # self.rabbit.publish_state(int(self.meditation_state))
 
-                # animate preview window if renderer is ok and Idling
-                if(self.gui.previewframe.rendering == False):
-                    # run pyflam4 rendering
-                    self.gui.previewframe.RenderPreview(self.flame)
+                    # transform fractal with new values from data
+                    self.animate(eegdata)
+
+                    # update status bar
+                    show_status("Frame: %s | EEG: %s | MEDITATION STATE: %s" 
+                                %(self.frame_index, 
+                                eegdata.console_string() if eegdata is not None else "",
+                                self.meditation_state ))
+
+                # render with new values
+                self.render()
 
                 # count frame number
                 self.frame_index += 1
@@ -181,9 +166,27 @@ class MMEngine:
     def zoom(self, zoomamount = 1):
         self.flame.scale *= zoomamount
 
-    def set_state(self, newstate = 0):
+    def set_state(self, newstate = 0, transtition = True, set_prev = False, set_next = False):
+        print("TRANSITION TO STATE %s" %(newstate))
+        if(set_prev and self.meditation_state > 1):
+            newstate = self.meditation_state - 1
+        elif(set_next and self.meditation_state < len(self.states_flames)):
+            newstate = self.meditation_state + 1
+        # else it's a number
+
+        # save state
         self.meditation_state = newstate
-        self.flame = self.load_flame(self.states_flames[newstate])
+        self.frame_index_sincestate = 0
+
+        if(transtition):
+            # start transition
+            self.transition_pct = 0.0
+            self.transition_from = self.flame
+            self.transition_to = self.states_flames[newstate - 1]
+        else:
+            self.flame = self.load_flame(self.states_flames[newstate - 1])
+
+
 
     def move(self, x = 0, y = 0):
 
@@ -229,27 +232,31 @@ class MMEngine:
             res = dialog("Choose settings.\n\n(Keyframe interval = 0 "
                  "uses the time attribute of each flame instead "
                  "of a fixed interval)",
-                 ("MEDITATION STATE 0", flames, 1),
-                 ("MEDITATION STATE 1", flames, 2),
-                 ("MEDITATION STATE 2", flames, 3),
-                 ("MEDITATION STATE 3", flames, 4),
-                 ("MEDITATION STATE 4", flames, 5),
-                 ("MEDITATION STATE 5", flames, 6))
+                 ("MEDITATION STATE 1", flames, 1),
+                 ("MEDITATION STATE 2", flames, 2),
+                 ("MEDITATION STATE 3", flames, 3),
+                 ("MEDITATION STATE 4", flames, 4),
+                 ("MEDITATION STATE 5", flames, 5))
             self.states_flames = res
         else:
-            self.states_flames = flames[1:7]
+            # the 1st frame is used to be worked on. not a state
+            self.states_flames = flames[1:-1]
 
         if len(self.states_flames) < 2:
             raise ValueError("Need to select at least 2 flames")
+
+        for flame in self.states_flames:
+            flame.size = 960, 540 
         return
 
     # lerp is interpolation percentage [0 - 1] between origin and target
     def load_flame(self, flame_origin, flame_target = None, lerp = 0.0):
+        loaded_flame = self.flame
         try:
             if(lerp == 0.0 or flame_target is None):
-                return flame_origin
+                loaded_flame = flame_origin
             elif(lerp >= 1.0 or flame_origin is None):
-                return flame_target
+                loaded_flame = flame_target
             else:        
                 # interpolation:
                 from fr0stlib.render import to_string as flame_to_string
@@ -260,12 +267,15 @@ class MMEngine:
                 genomes, ngenomes = Genome.from_string(flames_str)           
                 targetflame = Genome()
                 flam3_interpolate(genomes, ngenomes, lerp, 0, byref(targetflame))
-                return Flame(targetflame.to_string())
+                loaded_flame = Flame(targetflame.to_string())
+            
         except Exception as ex:
             import traceback
             print('error during interpolation at %s: %s' %(lerp, str(ex)))
             traceback.print_exc()
             return None
+
+        return loaded_flame
         
     # process new EEGData and animate flame
     def animate(self, eegdata):
@@ -285,7 +295,7 @@ class MMEngine:
                 # update colors
                 #calculate_colors(self.flame.xform)
 
-            dataindex = 0
+            dataindex = 5
             for x in self.flame.xform:
                 if(x.animate and eegdata is not None):
                     # ROTATION
@@ -300,8 +310,17 @@ class MMEngine:
                     dataindex += 1 # next data from audiodata
                     # every n frames is a cycle of X back and forth.
                     data *= np.sin(self.frame_index * (np.pi * 2) / self.sinelength)
-                    mov_delta = data * 0.02 * self.speed
+                    mov_delta = data * 0.01 * self.speed
                     x.move(mov_delta)
+
+                    # # ZOOM
+                    # # calculate zoom amount from data elements
+                    # data = eegdata.waves[dataindex % len(eegdata.waves)]
+                    # dataindex += 1 # next data from audiodata
+                    # # every n frames is a cycle of X back and forth.
+                    # data *= np.cos(self.frame_index * (np.pi * 2) / self.sinelength)
+                    # zoom_delta = data * 0.01 * self.speed
+                    # x.zoom(1 + zoom_delta)
 
             return True
         except Exception as ex:
@@ -311,12 +330,19 @@ class MMEngine:
             # SHOW preview on Fr0st
             return False
 
+    def render(self):
+        # animate preview window if renderer is ok and Idling
+        if(self.gui.previewframe.rendering == False):
+            # run pyflam4 rendering
+            self.gui.previewframe.RenderPreview(self.flame)
+
     
 
 # RUN
 audio_folder = get_scriptpath() + "/mindmurmer/sounds_controllers/sound_controller_demo_files/soundscape_controller_demo_files"
 # 1 - Dummy DATA
-eeg = EEGFromRabbitMQ('localhost', 5672, 'guest', 'guest', '/')
+eeg = EEGDummy()
+# eeg = EEGFromRabbitMQ('localhost', 5672, 'guest', 'guest', '/')
 # audio = get_audio_source(get_scriptpath() + '/mindmurmur/audio/midnightstar_crop.wav')
 # eeg = EEGFromAudio(audio)
 # 2 - DATA from json file
