@@ -6,7 +6,7 @@ import argparse
 
 from threading import Thread
 from collections import defaultdict
-from fr0st.scripts.mindmurmer.rabbit_controller import RabbitController, SoundCommand
+from fr0st.scripts.mindmurmer.rabbit_controller import RabbitController, MeditationStateCommand, HeartRateCommand
 
 
 class MindMurmurSoundScapeController(object):
@@ -58,33 +58,40 @@ class MindMurmurSoundScapeController(object):
 
 		self._validate_audio_files_and_prep_data()
 
-		self.bus.consume_sound(self.process_bus_message)
+		self.bus.open_channel()
+		self.bus.subscribe_meditation(self.process_meditation_state_command)
+		self.bus.subscribe_heart_rate(self.process_heart_rate_command)
+		self.bus.start_consuming()
 
-	def process_bus_message(self, channel, method, properties, body):
-		logging.info(("received message with body \"{body}\"").format(body=body))
+	def process_meditation_state_command(self, channel, method, properties, body):
+		logging.info(("received meditation command with body \"{body}\"").format(body=body))
 
-		command = SoundCommand.from_string(body)
+		command = MeditationStateCommand.from_string(body)
 
-		if command.get_desired_stage() >= 0:
-			desired_stage = command.get_desired_stage()
-			logging.info("parsing request to transition to stage \"{desired_stage}\"".format(
-				desired_stage=desired_stage))
+		desired_stage = command.get_state()
+		logging.info("parsing request to transition to stage \"{desired_stage}\"".format(
+			desired_stage=desired_stage))
 
-			if desired_stage ==  self.current_stage:
-				logging.info("requested stage is already playing, ignoring")
-			else:
-				stage_track = self._get_meditation_stage_soundscape_track_for_stage(desired_stage)
-				stage_change_direction = desired_stage - (self.current_stage or 0)
-
-				transition_track = (self.up_transition_sound_filename if stage_change_direction > 0 else
-									self.down_transition_sound_filename)
-
-				self._mix_track(stage_track, transition_track)
-				self.current_stage = desired_stage
+		if desired_stage ==  self.current_stage:
+			logging.info("requested stage is already playing, ignoring")
 		else:
-			logging.info("parsing request to play heartbeat for current stage ({current_stage})".format(
-				current_stage=self.current_stage))
-			self.play_heartbeat_for_stage()
+			stage_track = self._get_meditation_stage_soundscape_track_for_stage(desired_stage)
+			stage_change_direction = desired_stage - (self.current_stage or 0)
+
+			transition_track = (self.up_transition_sound_filename if stage_change_direction > 0 else
+								self.down_transition_sound_filename)
+
+			self._mix_track(stage_track, transition_track)
+			self.current_stage = desired_stage
+
+	def process_heart_rate_command(self, channel, method, properties, body):
+		logging.info(("received heart rate command with body \"{body}\"").format(body=body))
+
+		command = HeartRateCommand.from_string(body)
+
+		logging.info("parsing request to play heartbeat for current stage ({current_stage})".format(
+			current_stage=self.current_stage))
+		self.play_heartbeat_for_stage()
 
 	def stop_all_sounds(self):
 		for track in self.playing_tracks + self.playing_heartbeats + self.playing_transitions:
