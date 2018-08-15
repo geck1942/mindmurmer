@@ -15,10 +15,10 @@ class InputController(object):
         self.guiframe.UnBind(wx.EVT_KEY_DOWN)
         self.guiframe = None
 
-    def OnKey(self, event):
+    def OnKeyDown(self, event):
         if self.guiframe is None:
             return 
-
+            
         key_code = event.GetKeyCode()
         print('WXK keycode: %s' %(key_code))
         # [F1] - STATE 1
@@ -41,6 +41,12 @@ class InputController(object):
         elif key_code == 348 or key_code == 349:
             self.engine.stop()
             event.Skip()            
+
+
+    def OnKey(self, event):
+        if self.guiframe is None:
+            return 
+
         # [F11] - FORWARD
         elif key_code == 350:
             self.engine.zoom(1.1)
