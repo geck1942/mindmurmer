@@ -32,6 +32,7 @@ if 'large_preview' not in locals() and 'preview' not in globals():
 
 class MMEngine:
     def __init__(self, eeg_source, gui, audio_folder):
+        print("[>] _INIT")
         self.eeg_source = eeg_source
         self.frame_index = 0
         self.speed = 0.1
@@ -53,13 +54,15 @@ class MMEngine:
         
         # reference to global or defined herebefore
         self.flame = flame
-        self.incomming_flames = []
+        # set these 3 to start fractal interpolation
         self.transition_pct = None
         self.transition_from = None
         self.transition_to = None
-        
+        # sets the frame at which the user disconnected
+        self.disconnected_at = None
 
-    def start(self):
+    def gui_start(self):
+        print("[>] GUI START")
         # ask for input
         self.retreive_params()
         # hide UI
@@ -74,11 +77,13 @@ class MMEngine:
         # self.gui.previewframe.ShowFullScreen(True)
 
         # time.sleep(0.400)
+        self.set_state(1, False)
         # start loop
-        
+
+    def idle(self):
+        print("[>] IDLE")
         self.frame_index = 0
         self.frame_index_sincestate = 0
-        self.set_state(1, False)
         self.keeprendering = True
 
         while self.keeprendering:
@@ -86,51 +91,106 @@ class MMEngine:
                 # fps timer
                 t0 = time.clock()
 
-                # if flames were designed for transition, 
-                # do the transition
-                if(self.transition_pct is not None and self.transition_from is not None and self.transition_to is not None):
-                    # apply interpolation transition
-                    lerp_pct = easing_cubic(self.transition_pct)
-                    newflame = self.load_flame(self.transition_from, self.transition_to, lerp_pct)
-                    if(newflame is not None):
-                        self.flame = newflame
-
-                    if(self.transition_pct >= 1):
-                        # end of transition
-                        self.transition_pct = None
-                    else:
-                        # add 1 / nth to the transition
-                        self.transition_pct += 1 / 250.
-                else:
-                    # cancel interpolation
-                    self.transition_pct = None
-                
                 # read data
                 eegdata = self.eeg_source.read_data()
-                                    
-                if(eegdata is not None):
 
-                    # [!] new meditation state reached
-                    if(self.meditation_state != eegdata.meditation_state \
-                        # and if transitionned less than a minute ago
-                        and self.frame_index_sincestate > self.maxfps * 30):
-                        # [>] set new state
-                        self.set_state(eegdata.meditation_state)
+                # apply transition
+                self.apply_transition(duration_sec = 30)
 
-                    #TODO get heartbeat
-                    heartbeat = 60
-                    # send data to RabbitMQ bus
-                    self.rabbit.publish_heart(heartbeat)
+                # no data
+                if(eegdata is None or eegdata.is_empty() == True):
 
-                    # transform fractal with new values from data
-                    self.animate(eegdata)
+                    # do nothing during 5 minutes.
+                    if(self.frame_index_sincestate > self.maxfps * 30):
+                    # or transition to next state:
+                        self.set_state(set_next=True)
 
-                    # update status bar
-                    show_status("Frame: %s | EEG: %s | MEDITATION STATE: %s" 
-                                %(self.frame_index, 
-                                eegdata.console_string() if eegdata is not None else "",
-                                self.meditation_state ))
+                # data recived
+                else:
+                    print("[ ] USER CONNECTED")
+                    # if inactive for more than 30 seconds
+                    if(self.frame_index > self.maxfps * 30):
+                        # back to state 1
+                        self.set_state(1)
+                    # stop idling
+                    self.keeprendering = False
 
+                # update status bar
+                show_status("Frame: %s/%s | IDLING" 
+                            %(self.frame_index,
+                            self.frame_index_sincestate))
+
+                # render with new values
+                self.render()
+
+                # count frame number
+                self.frame_index += 1
+                self.frame_index_sincestate += 1
+
+                # sleep to keep a decent fps
+                delay = t0 + 1./self.maxfps - time.clock()
+                if delay > 0. : time.sleep(delay)
+                else :  time.sleep(0.01)
+                
+            except Exception as ex:
+                import traceback
+                print('[!] error during MMEngine idle loop: ' + str(ex))
+                traceback.print_exc()
+                self.keeprendering = False
+            
+        # -- END of loop
+        self.start()
+
+
+    def start(self):
+
+        print("[>] START")
+        
+        self.frame_index = 0
+        self.frame_index_sincestate = 0
+        self.keeprendering = True
+
+        while self.keeprendering:
+            try:
+                # fps timer
+                t0 = time.clock()
+
+                # if no flames were designed for transition, 
+                if(self.apply_transition() == False):
+                
+                    # read data
+                    eegdata = self.eeg_source.read_data()
+
+                    # data found                
+                    if(eegdata is not None and eegdata.is_empty() == False):
+
+                        # [!] new meditation state reached
+                        if(self.meditation_state != eegdata.meditation_state \
+                            # and if transitionned less than a minute ago
+                            and self.frame_index_sincestate > self.maxfps * 30):
+                            # [>] set new state
+                            self.set_state(eegdata.meditation_state)
+
+                        #TODO get heartbeat
+                        heartbeat = 60
+                        # send data to RabbitMQ bus
+                        self.rabbit.publish_heart(heartbeat)
+
+                        # transform fractal with new values from data
+                        self.animate(eegdata)
+
+                        # update status bar
+                        show_status("Frame: %s/%s | EEG: %s | MEDITATION STATE: %s" 
+                                    %(self.frame_index,
+                                    self.frame_index_sincestate, 
+                                    eegdata.console_string() if eegdata is not None else "no data",
+                                    self.meditation_state ))
+
+                    # no data is found
+                    else:
+                        # go to idling.
+                        self.keeprendering = False
+            
                 # render with new values
                 self.render()
 
@@ -150,9 +210,10 @@ class MMEngine:
                 self.keeprendering = False
             
         # -- END of loop
-        self.stop()
+        self.idle()
             
     def stop(self):
+        print("[>] STOP")
         self.keeprendering = False
            
         # hide GUI preview Window
@@ -167,12 +228,12 @@ class MMEngine:
         self.flame.scale *= zoomamount
 
     def set_state(self, newstate = 0, transtition = True, set_prev = False, set_next = False):
-        print("TRANSITION TO STATE %s" %(newstate))
-        if(set_prev and self.meditation_state > 1):
-            newstate = self.meditation_state - 1
-        elif(set_next and self.meditation_state < len(self.states_flames)):
-            newstate = self.meditation_state + 1
+        if(set_prev):
+            newstate = self.meditation_state - 1 if self.meditation_state > 1 else 5
+        elif(set_next):
+            newstate = self.meditation_state + 1 if self.meditation_state < 5 else 1
         # else it's a number
+        print("[ ] TRANSITION TO STATE %s" %(newstate))
 
         # save state
         self.meditation_state = newstate
@@ -189,20 +250,25 @@ class MMEngine:
 
 
     def move(self, x = 0, y = 0):
+        try:
+            move_x =  y * np.sin(self.flame.rotate * np.pi / 180.) \
+                    + x * np.cos(self.flame.rotate * np.pi / 180.)
+            move_y =  y * np.cos(self.flame.rotate * np.pi / 180.) \
+                    + x * np.sin(self.flame.rotate * np.pi / 180.)
+            move_x /= self.flame.scale
+            move_y /= self.flame.scale
+            
 
-        move_x =  y * np.sin(self.flame.rotate * np.pi / 180.) \
-                + x * np.cos(self.flame.rotate * np.pi / 180.)
-        move_y =  y * np.cos(self.flame.rotate * np.pi / 180.) \
-                + x * np.sin(self.flame.rotate * np.pi / 180.)
-        move_x /= self.flame.scale
-        move_y /= self.flame.scale
-        
+            self.flame.center[0] += move_x
+            self.flame.center[1] += move_y
+        except:
+            print("[!] error during flame move")
 
-        self.flame.center[0] += move_x
-        self.flame.center[1] += move_y
-    
     def rotate(self, deg_angle = 0):
-        self.flame.rotate += deg_angle
+        try:
+            self.flame.rotate += deg_angle
+        except:
+            print("[!] error during flame rotate")
 
     def recenter(self):
         self.flame.center = 0, 0
@@ -249,6 +315,26 @@ class MMEngine:
             flame.size = 960, 540 
         return
 
+    def apply_transition(self, duration_sec = 10):
+        if(self.transition_pct is not None and self.transition_from is not None and self.transition_to is not None):
+            # do the transition
+                    # apply interpolation transition
+            lerp_pct = easing_cubic(self.transition_pct)
+            newflame = self.load_flame(self.transition_from, self.transition_to, lerp_pct)
+            if(newflame is not None):
+                self.flame = newflame
+
+            if(self.transition_pct >= 1):
+                # end of transition
+                self.transition_pct = None
+            else:
+                # add 1 / nth to the transition
+                self.transition_pct += 1 / float(duration_sec * self.maxfps)
+            return True
+        else:
+            return False
+
+
     # lerp is interpolation percentage [0 - 1] between origin and target
     def load_flame(self, flame_origin, flame_target = None, lerp = 0.0):
         loaded_flame = self.flame
@@ -271,7 +357,7 @@ class MMEngine:
             
         except Exception as ex:
             import traceback
-            print('error during interpolation at %s: %s' %(lerp, str(ex)))
+            print('[!] error during interpolation at %s: %s' %(lerp, str(ex)))
             traceback.print_exc()
             return None
 
@@ -325,7 +411,7 @@ class MMEngine:
             return True
         except Exception as ex:
             logging.exception(ex)
-            print('error during rendering: ' + str(ex))
+            print('[!] error during rendering: ' + str(ex))
 
             # SHOW preview on Fr0st
             return False
@@ -339,6 +425,7 @@ class MMEngine:
     
 
 # RUN
+print('[$] - BEGIN SCRIPT -')
 audio_folder = get_scriptpath() + "/mindmurmer/sounds_controllers/sound_controller_demo_files/soundscape_controller_demo_files"
 # 1 - Dummy DATA
 # eeg = EEGDummy()
@@ -354,5 +441,6 @@ eeg = EEGFromRabbitMQ('localhost', 5672, 'guest', 'guest', '/')
 #_self is some hidden hack from fr0st that refers to the gui MainWindow
 engine = MMEngine(eeg, _self, audio_folder)
 
-engine.start()
-print('- END OF SCRIPT -')
+engine.gui_start()
+engine.idle()
+print('[x] - END SCRIPT -')

@@ -30,6 +30,15 @@ class EEGData():
         # sum of the 5 waves
         self.waves = [self.alpha, self.beta, self.gamma, self.delta, self.theta]
 
+    def is_empty(self):
+        any_value = False
+        for freq in self.waves:
+            if(freq != 0.0):
+                any_value = True
+                break
+        # print("[?] EEG %s EMPTY: %s" %("NOT" if any_value else "IS", self.console_string()))
+        return not any_value
+
     def console_string(self):
         return "".join(format(int(wav*10)) for wav in self.waves) + " - " + format(round(self.meditation_state,1))
     
@@ -47,7 +56,11 @@ class EEGSource(object):
         # add new EEGdata to history
         data = self.read_new_data()
         if (data is not None):
+            # append data to history
             self.data_history.append(data)
+        # pop data to save memory
+        if(len(self.data_history) > 10):
+            self.data_history.pop(0)
         # and return it
         return self.get_smooth_data()
     
