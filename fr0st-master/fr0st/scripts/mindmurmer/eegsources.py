@@ -25,7 +25,7 @@ class EEGData():
         # blink is 0 or 1
         self.blink = values[-2]
         # meditation_state is a value between 0 and 1
-        self.meditation_state = values[-1]
+        self.meditation_state = int(values[-1])
 
         # sum of the 5 waves
         self.waves = [self.alpha, self.beta, self.gamma, self.delta, self.theta]

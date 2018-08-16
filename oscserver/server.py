@@ -15,7 +15,8 @@ from rabbit_controller import RabbitController
 
 QUEUE_SIZE = 300  # band powers are calculated at 10hz, storing a 30 seconds worth of data in dequeue
 
-EMIT_STAGE_PERIOD_SECONDS = 3 * 60  # evaluating stages every 3 minutes
+EMIT_STAGE_PERIOD_SECONDS = 60  # evaluating stages every 3 minutes
+EMIT_EEGDATA_PERIOD_SECONDS = 1  # evaluating eegdata every second
 ARIMA_PARAMS = (4, 0, 1)
 LOWER_THRESHOLD = -0.04
 UPPER_THRESHOLD = 0.01
@@ -43,11 +44,25 @@ class OscUDPHandler(socketserver.BaseRequestHandler):
         logger.info('{address} {params}'.format(address=message.address, 
                                                 params=message.params))
         if message.address == '/muse/elements/alpha_absolute':
-            print('got alpha ' + str(message.params))
+            # print('got alpha ' + str(message.params))
             self.server.queue.append(np.mean(message.params[1:3]))  # storing mean value of abs_alpha in
             #  channels 2 and 3
+            self.server.raw_values[0:4] = message.params # set alpha
+        elif message.address == '/muse/elements/beta_absolute':
+            # print('got beta ' + str(message.params))
+            self.server.raw_values[4:8] = message.params # set beta
+        elif message.address == '/muse/elements/gamma_absolute':
+            # print('got gamma ' + str(message.params))
+            self.server.raw_values[8:12] = message.params # set gamma
+        elif message.address == '/muse/elements/delta_absolute':
+            # print('got delta ' + str(message.params))
+            self.server.raw_values[12:16] = message.params # set delta
+        elif message.address == '/muse/elements/theta_absolute':
+            # print('got theta ' + str(message.params))
+            self.server.raw_values[16:20] = message.params # set theta
         elif message.address == '/muse/elements/blink':
             self.server.increment_blink()
+            self.server.raw_values[20] = self.server.blink_events # set blink
         elif message.address == '/muse/acc':
             pass
             # think how to store accelerometer data, we'll need it to detect if person moved too much
@@ -67,10 +82,11 @@ class ThreadingOscUDPServer(socketserver.ThreadingMixIn, OscUDPServer):
         self.queue = deque(maxlen=QUEUE_SIZE)  # we only use append, therefore no need in queue.Queue
         self.blink_events = 0  # counter of blink events
         self.state = None
+        self.raw_values = [0] * 22
         self.lock = Lock()
         self._stop = Event()
         self._timer_thread = None
-        self.start_emitting_state_messages()
+        self.start_emitting_messages()
 
     def increment_blink(self):
         with self.lock:
@@ -79,10 +95,11 @@ class ThreadingOscUDPServer(socketserver.ThreadingMixIn, OscUDPServer):
     def _signal_handler(self, _, unused_frame):
         self._stop.set()
 
-    def start_emitting_state_messages(self):
+    def start_emitting_messages(self):
         self.state = 1
         self.rabbit.publish_state(self.state)
         Thread(target=self.predict_next_level, daemon=True).start()
+        Thread(target=self.update_rawvalues, daemon=True).start()
 
     def predict_next_level(self):
         while not self._stop.is_set():
@@ -99,9 +116,22 @@ class ThreadingOscUDPServer(socketserver.ThreadingMixIn, OscUDPServer):
                 self.state = min(self.state + 1, 5)
             elif mean_diff < LOWER_THRESHOLD:
                 self.state = max(self.state - 1, 1)
+
+            # send to the bus
+            print("[ ] EMITTING STATE: %s" %(self.state))
             self.rabbit.publish_state(self.state)
+
             with self.lock:
                 self.blink_events = 0
+
+    def update_rawvalues(self):
+        while not self._stop.is_set():
+            self._stop.wait(EMIT_EEGDATA_PERIOD_SECONDS)
+            # set state in raw_valceiceilues
+            self.raw_values[21] = int(self.state)
+            # send to the bus
+            print("[ ] EMITTING EEGDATA: %s" %(self.raw_values))
+            self.rabbit.publish_eegdata(self.raw_values)
 
 
 if __name__ == '__main__':
@@ -119,3 +149,4 @@ if __name__ == '__main__':
     print("Serving on {}".format(server.server_address))
 
     server.serve_forever()
+    self._stop.set()

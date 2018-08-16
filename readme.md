@@ -14,6 +14,8 @@ the following libraries are required:
 - **swmixer**
 - **aubio** (on windows, Microsoft Visual C++ 9.0 is required. Get it from http://aka.ms/vcpython27)
 - **pika**
+- **statsmodels**
+- **patsy**
 
 ## Windows Environment variables
 
