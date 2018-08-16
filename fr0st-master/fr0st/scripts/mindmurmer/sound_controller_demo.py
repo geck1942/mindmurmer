@@ -10,10 +10,10 @@ logging.basicConfig(format=log_format, level=log_level)
 bus = RabbitController('localhost', 5672, 'guest', 'guest', '/')
 
 def set_to_stage(stage):
-	bus.publish_sound(stage)
+	bus.publish_state(stage)
 
 def play_heartbet():
-	bus.publish_sound(-1)
+	bus.publish_heart(75)
 
 logging.info("requesting to set mode to 0")
 set_to_stage(0)

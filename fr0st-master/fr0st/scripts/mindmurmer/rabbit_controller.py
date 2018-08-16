@@ -10,14 +10,12 @@ class RabbitController(object):
 
         self.QUEUE_NAME_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain_colorCommand'
         self.QUEUE_NAME_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain_heartRateCommand'
-        self.QUEUE_NAME_SOUND = 'MindMurmur.Domain.Messages.SoundCommand, MindMurmur.Domain_SoundCommand'
         self.QUEUE_NAME_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain_meditationStateCommand'
         self.QUEUE_NAME_EEGDATA = 'MindMurmur.Domain.Messages.EEGDataCommand, MindMurmur.Domain_eegdataCommand'
         self.EXCHANGE_STATE = 'MindMurmur.Domain.Messages.MeditationStateCommand, MindMurmur.Domain'
         self.EXCHANGE_COLOR = 'MindMurmur.Domain.Messages.ColorControlCommand, MindMurmur.Domain'
         self.EXCHANGE_HEART = 'MindMurmur.Domain.Messages.HeartRateCommand, MindMurmur.Domain'
         self.EXCHANGE_EEGDATA = 'MindMurmur.Domain.Messages.EEGDataCommand, MindMurmur.Domain'
-        self.EXCHANGE_SOUND = 'MindMurmur.Domain.Messages.SoundCommand, MindMurmur.Domain'
 
         self.credentials = pika.PlainCredentials(user, password)
         self.parameters = pika.ConnectionParameters(host, port, virtualhost, self.credentials)
@@ -25,146 +23,42 @@ class RabbitController(object):
         self.heart_props = pika.BasicProperties(type=self.EXCHANGE_HEART, delivery_mode=2)
         self.state_props = pika.BasicProperties(type=self.EXCHANGE_STATE, delivery_mode=2)
         self.eegdata_props = pika.BasicProperties(type=self.EXCHANGE_EEGDATA, delivery_mode=2)
-        self.sound_props = pika.BasicProperties(type=self.EXCHANGE_SOUND, delivery_mode=2)
 
         return
 
-    def subscribe_eegdata(self, callback):
+    def _base_subscribe(self, consume_target_str, queue_name, callback):
         try:
-            
-            self.open_channel()
+            new_channel = self.open_channel()
+            new_channel.queue_declare(queue=queue_name)
+            new_channel.basic_consume(callback, queue=queue_name, no_ack=True)
+            new_channel.start_consuming()
 
-            self.active_channel.queue_declare(queue=self.EXCHANGE_EEGDATA)
-            print("eegdata channel opened: %s" %(self.EXCHANGE_EEGDATA))
-            self.active_channel.basic_consume(callback, 
-                                    queue=self.EXCHANGE_EEGDATA,
-                                    no_ack= True)
-            self.active_channel.start_consuming()
-
-            # self.active_channel.start_consuming()
-            print("eegdata channel terminated: %s" %(self.EXCHANGE_EEGDATA))
-            # print(" [x] Sent color message %r {0}" % color)
+            logging.info("waiting for {consume_target_str} state messages..".format(
+                consume_target_str=consume_target_str))
         except Exception as e:
             print(repr(e))
-            # do not raise exception. Channel probably not ready
-            # raise e
-        finally:
+
             if self.open_connection:
                 self.open_connection.close()
 
-    def publish_color(self, color):
+    def _base_publish(self, queue_name, properties, command):
         try:
-            color_com = ColorControlCommand(color.red, color.green, color.blue)
-            
             self.open_channel()
-            self.active_channel.exchange_declare(exchange=self.EXCHANGE_COLOR, passive=True)
-            self.active_channel.basic_publish(exchange=self.EXCHANGE_COLOR,
-                                    properties=self.color_props,
-                                    routing_key='',
-                                    body=color_com.to_json())
-
-            # print(" [x] Sent color message %r {0}" % color)
-        except Exception as e:
-            print(repr(e))
-            raise e
-        finally:
-            if self.open_connection:
-                self.open_connection.close()
-
-    def publish_heart(self, heartbeat):
-        try:
-            heart_com = HeartRateCommand(heartbeat)
-
-            self.open_channel()
-            self.active_channel.exchange_declare(exchange=self.EXCHANGE_HEART, passive=True)
-            self.active_channel.basic_publish(exchange=self.EXCHANGE_HEART,
-                                    properties=self.color_props,
-                                    routing_key='',
-                                    body=heart_com.to_json())
-
-            # print(" [x] Sent heartbeat message %r {0}" % heartbeat)
-        except Exception as e:
-            print(repr(e))
-            raise e
-        finally:
-            if self.open_connection:
-                self.open_connection.close()
-
-
-    def publish_state(self, meditation_state):
-        try:
-            state_com = MeditationStateCommand(meditation_state)
-
-            self.open_channel()
-
-            self.active_channel.queue_declare(queue=self.EXCHANGE_STATE)
+            self.active_channel.queue_declare(queue=queue_name, passive=True)
             self.active_channel.basic_publish(exchange='',
-                                    properties=self.state_props,
-                                    routing_key=self.EXCHANGE_STATE,
-                                    body=state_com.to_json())
-
-            # print(" [x] Sent meditation_state message %r {0}" % meditation_state)
+                                              properties=properties,
+                                              routing_key=queue_name,
+                                              body=command.to_json())
         except Exception as e:
             print(repr(e))
             raise e
         finally:
-            if self.open_connection:
-                self.open_connection.close()
-
-    def publish_eegdata(self, eegdata_values):
-        try:
-            eegdata_com = EEGDataCommand(eegdata_values)
-
-            self.open_channel()
-            self.active_channel.queue_declare(queue=self.EXCHANGE_EEGDATA)
-            self.active_channel.basic_publish(exchange='',
-                                              properties=self.eegdata_props,
-                                              routing_key=self.EXCHANGE_EEGDATA,
-                                              body=eegdata_com.to_json())
-
-        except Exception as e:
-            print(repr(e))
-            raise e
-        finally:
-            if self.open_connection:
-                self.open_connection.close()
-
-    def publish_sound(self, desired_stage):
-        try:
-            sound_command = SoundCommand(desired_stage)
-
-            self.open_channel()
-            self.active_channel.queue_declare(queue=self.QUEUE_NAME_SOUND)
-            self.active_channel.basic_publish(exchange='',
-                                              properties=self.sound_props,
-                                              routing_key=self.QUEUE_NAME_SOUND,
-                                              body=sound_command.to_json())
-
-            logging.info("sent sound message {desired_stage}".format(desired_stage=desired_stage))
-        except Exception as e:
-            print(repr(e))
-            raise e
-        finally:
-            if self.open_connection:
-                self.open_connection.close()
-
-    def consume_sound(self, callback):
-        try:
-            self.open_channel()
-            self.active_channel.queue_declare(queue=self.QUEUE_NAME_SOUND)
-            self.active_channel.basic_consume(callback, queue=self.QUEUE_NAME_SOUND, no_ack=True)
-
-            logging.info("waiting for sound messages..")
-            self.active_channel.start_consuming()
-        except Exception as e:
-            print(repr(e))
-
             if self.open_connection:
                 self.open_connection.close()
 
     def open_channel(self):
         try:
-            
+
             self.open_connection = pika.BlockingConnection(self.parameters)
             self.active_channel = self.open_connection.channel()
             # self.on_channel_open(self.active_channel)
@@ -174,6 +68,42 @@ class RabbitController(object):
         except Exception as ex:
             print('error during rabbitMQ channel creation: ' + str(ex))
             return None
+
+    def subscribe_meditation(self, callback):
+        self._base_subscribe("meditation state", self.EXCHANGE_STATE, callback)
+
+    def subscribe_heart_rate(self, callback):
+        self._base_subscribe("heart rate", self.EXCHANGE_HEART, callback)
+
+    def subscribe_eegdata(self, callback):
+        self._base_subscribe("EEG data", self.EXCHANGE_EEGDATA, callback)
+
+    def publish_color(self, color):
+        color_command = ColorControlCommand(color.red, color.green, color.blue)
+        self._base_publish(self.EXCHANGE_COLOR, self.color_props, color_command)
+
+        logging.info("sent color message (Red: {red}, Blue: {blue}, Green: {green})".format(
+            red=color.red, green=color.green, blue=color.blue))
+
+    def publish_heart(self, heartbeat):
+        heart_command = HeartRateCommand(heartbeat)
+        self._base_publish(self.EXCHANGE_HEART, self.heart_props, heart_command)
+
+        logging.info("sent heart rate message {heartbeat}".format(heartbeat=heartbeat))
+
+    def publish_state(self, meditation_state):
+        state_command = MeditationStateCommand(meditation_state)
+        self._base_publish(self.EXCHANGE_STATE, self.state_props, state_command)
+
+        logging.info("sent meditation state message {meditation_state}".format(
+            meditation_state=meditation_state))
+
+    def publish_eegdata(self, eegdata_values):
+        eegdata_command = EEGDataCommand(eegdata_values)
+        self._base_publish(self.EXCHANGE_EEGDATA, self.eegdata_props, eegdata_command)
+
+        logging.info("sent eegdata message {eegdata_values}".format(eegdata_values=eegdata_values))
+
 
 class ColorControlCommand(object):
     """An instance of a color control command
@@ -198,7 +128,17 @@ class ColorControlCommand(object):
         return "({0}, {1}, {2}, {3})".format(self.CommandId, self.ColorRed, self.ColorGreen, self.ColorBlue)
 
 
-class HeartRateCommand(object):
+class BaseCommand(object):
+    """
+
+    """
+    def __init__(self):
+        self.CommandId = str(uuid.uuid4())
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
+
+class HeartRateCommand(BaseCommand):
     """An instance of a heart rate command
 
     Attributes:
@@ -207,16 +147,20 @@ class HeartRateCommand(object):
     """
 
     def __init__(self, heart_rate):
-        self.CommandId = str(uuid.uuid4())
+        super(HeartRateCommand, self).__init__()
         self.HeartRate = heart_rate
 
-    def to_json(self):
-        return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
+    @staticmethod
+    def from_string(command_string):
+        return HeartRateCommand(json.loads(command_string)["HeartRate"])
 
     def to_string(self):
         return "({0}, {1})".format(self.CommandId, self.HeartRate)
 
-class MeditationStateCommand(object):
+    def get_heart_rate(self):
+        return self.HeartRate
+
+class MeditationStateCommand(BaseCommand):
     """An instance of a meditation state command
 
     Attributes:
@@ -225,8 +169,12 @@ class MeditationStateCommand(object):
     """
 
     def __init__(self, meditation_state):
-        self.CommandId = str(uuid.uuid4())
+        super(MeditationStateCommand, self).__init__()
         self.State = meditation_state
+
+    @staticmethod
+    def from_string(command_string):
+        return MeditationStateCommand(json.loads(command_string)["State"])
 
     def get_state(self):
         return self.State
@@ -237,7 +185,7 @@ class MeditationStateCommand(object):
     def to_string(self):
         return "({0}, {1})".format(self.CommandId, self.State)
 
-class EEGDataCommand(object):
+class EEGDataCommand(BaseCommand):
     """An instance of a eeg data command
 
     Attributes:
@@ -246,7 +194,7 @@ class EEGDataCommand(object):
     """
 
     def __init__(self, eegdata_values):
-        self.CommandId = str(uuid.uuid4())
+        super(EEGDataCommand, self).__init__()
         self.Values = eegdata_values
 
     def get_values(self):
