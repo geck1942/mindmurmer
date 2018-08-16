@@ -7,7 +7,7 @@ from fr0stlib import Flame
 from fr0stlib.render import save_image
 from fr0stlib.pyflam3 import Genome, byref, flam3_interpolate
 
-from utils import get_scriptpath, easing_cubic
+from utils import get_scriptpath, easing_cubic, easing_sine
 from eegsources import *
 from rabbit_controller import RabbitController
 from sound_controller import MindMurmurSoundScapeController
@@ -39,8 +39,8 @@ class MMEngine:
         self.channels = 24
         self.sinelength = 300 # frames
         self.gui = gui
-        self.maxfps = 25 # target frames per second
-        self.states_flames = [ ] * 5
+        self.maxfps = 20 # target frames per second
+        self.states_flames = [ ]
         self.meditation_state = 1
 
         # init rabbitMQ connection
@@ -231,9 +231,9 @@ class MMEngine:
 
     def set_state(self, newstate = 0, transtition = True, set_prev = False, set_next = False):
         if(set_prev):
-            newstate = self.meditation_state - 1 if self.meditation_state > 1 else len(self.states_flames)
+            newstate = self.meditation_state - 1 if self.meditation_state > 1 else 5
         elif(set_next):
-            newstate = self.meditation_state + 1 if self.meditation_state < len(self.states_flames) else 1
+            newstate = self.meditation_state + 1 if self.meditation_state < 5 else 1
         # else it's a number
         print("[ ] TRANSITION TO STATE %s" %(newstate))
 
@@ -241,13 +241,21 @@ class MMEngine:
         self.meditation_state = newstate
         self.frame_index_sincestate = 0
 
+        # find appropriate flame
+        flame_per_state = int(len(self.states_flames) / 5)
+        flame_index = (newstate - 1) * flame_per_state \
+                    + numpy.random.randint(0, flame_per_state)
+
+        print("[ ] ENTERING STATE %s" %(newstate))
         if(transtition):
+            print("[ ] TRANSITION TO FLAME %s" %(self.states_flames[flame_index].name))
             # start transition
             self.transition_pct = 0.0
             self.transition_from = self.flame
-            self.transition_to = self.states_flames[newstate - 1]
+            self.transition_to = self.states_flames[flame_index]
         else:
-            self.flame = self.load_flame(self.states_flames[newstate - 1])
+            print("[ ] LOADING FLAME %s" %(self.states_flames[flame_index].name))
+            self.flame = self.load_flame(self.states_flames[flame_index])
 
 
 
@@ -308,7 +316,7 @@ class MMEngine:
             self.states_flames = res
         else:
             # the 1st frame is used to be worked on. not a state
-            self.states_flames = flames[1:-1]
+            self.states_flames = flames[1:]
 
         if len(self.states_flames) < 2:
             raise ValueError("Need to select at least 2 flames")

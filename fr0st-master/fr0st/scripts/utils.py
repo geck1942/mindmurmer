@@ -4,6 +4,7 @@ from other scripts, through the standard python import mechanism.
 """
 
 import itertools, fr0stlib
+import math
 
 def calculate_colors(xforms):
     """Distribute color values evenly among xforms. You can pass the entire
@@ -56,6 +57,10 @@ def clamp(percent, outrange_min = 0, outrange_max = 1, overflow = False):
     if (overflow == False and percent > 1): percent = 1
     if (overflow == False and percent < 0): percent = 0
     return (percent * delta) + outrange_min
+
+def easing_sine(percent, minvalue = 0, maxvalue = 1):
+	return -(maxvalue - minvalue)/2 * (math.cos(math.pi*percent) - 1) + minvalue
+
 
 def easing_cubic(percent, minvalue = 0, maxvalue = 1):
     percent *= 2.
