@@ -39,7 +39,7 @@ class MMEngine:
         self.channels = 24
         self.sinelength = 300 # frames
         self.gui = gui
-        self.maxfps = 20 # target frames per second
+        self.maxfps = 25 # target frames per second
         self.states_flames = [ ] * 5
         self.meditation_state = 1
 
@@ -87,9 +87,9 @@ class MMEngine:
         self.keeprendering = True
 
         while self.keeprendering:
+            # fps timer
+            t0 = time.clock()
             try:
-                # fps timer
-                t0 = time.clock()
 
                 # read data
                 eegdata = self.eeg_source.read_data()
@@ -127,17 +127,18 @@ class MMEngine:
                 self.frame_index += 1
                 self.frame_index_sincestate += 1
 
-                # sleep to keep a decent fps
-                delay = t0 + 1./self.maxfps - time.clock()
-                if delay > 0. : time.sleep(delay)
-                else :  time.sleep(0.01)
                 
             except Exception as ex:
                 import traceback
                 print('[!] error during MMEngine idle loop: ' + str(ex))
                 traceback.print_exc()
                 self.keeprendering = False
-            
+            finally:
+                # sleep to keep a decent fps
+                delay = t0 + 1./self.maxfps - time.clock()
+                if delay > 0. : time.sleep(delay)
+                else :  time.sleep(0.01)
+
         # -- END of loop
         self.start()
 
@@ -151,9 +152,9 @@ class MMEngine:
         self.keeprendering = True
 
         while self.keeprendering:
+            # fps timer
+            t0 = time.clock()
             try:
-                # fps timer
-                t0 = time.clock()
 
                 # if no flames were designed for transition, 
                 if(self.apply_transition() == False):
@@ -198,17 +199,18 @@ class MMEngine:
                 self.frame_index += 1
                 self.frame_index_sincestate += 1
 
-                # sleep to keep a decent fps
-                delay = t0 + 1./self.maxfps - time.clock()
-                if delay > 0. : time.sleep(delay)
-                else :  time.sleep(0.01)
                 
             except Exception as ex:
                 import traceback
                 print('error during MMEngine loop: ' + str(ex))
                 traceback.print_exc()
                 self.keeprendering = False
-            
+            finally:
+                # sleep to keep a decent fps
+                delay = t0 + 1./self.maxfps - time.clock()
+                if delay > 0. : time.sleep(delay)
+                else :  time.sleep(0.01)
+
         # -- END of loop
         self.idle()
             
@@ -229,9 +231,9 @@ class MMEngine:
 
     def set_state(self, newstate = 0, transtition = True, set_prev = False, set_next = False):
         if(set_prev):
-            newstate = self.meditation_state - 1 if self.meditation_state > 1 else 5
+            newstate = self.meditation_state - 1 if self.meditation_state > 1 else len(self.states_flames)
         elif(set_next):
-            newstate = self.meditation_state + 1 if self.meditation_state < 5 else 1
+            newstate = self.meditation_state + 1 if self.meditation_state < len(self.states_flames) else 1
         # else it's a number
         print("[ ] TRANSITION TO STATE %s" %(newstate))
 
