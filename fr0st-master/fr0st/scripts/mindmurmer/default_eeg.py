@@ -39,7 +39,7 @@ class MMEngine:
         self.channels = 24
         self.sinelength = 300 # frames
         self.gui = gui
-        self.maxfps = 20 # target frames per second
+        self.maxfps = 25 # target frames per second
         self.states_flames = [ ]
         self.meditation_state = 1
 
@@ -95,23 +95,26 @@ class MMEngine:
                 eegdata = self.eeg_source.read_data()
 
                 # apply transition
-                self.apply_transition(duration_sec = 30)
+                self.apply_transition(duration_sec = 60)
 
                 # no data
                 if(eegdata is None or eegdata.is_empty() == True):
 
                     # do nothing during 5 minutes.
-                    if(self.frame_index_sincestate > self.maxfps * 30):
+                    if(self.frame_index_sincestate > self.maxfps * 60):
                     # or transition to next state:
                         self.set_state(set_next=True)
 
                 # data recived
                 else:
-                    print("[ ] USER CONNECTED")
                     # if inactive for more than 30 seconds
                     if(self.frame_index > self.maxfps * 30):
+                        print("[ ] NEW SESSION")
+                        self.retreive_params()
                         # back to state 1
                         self.set_state(1)
+                    else:
+                        print("[ ] USER RECONNECTED")
                     # stop idling
                     self.keeprendering = False
 
@@ -156,41 +159,42 @@ class MMEngine:
             t0 = time.clock()
             try:
 
-                # if no flames were designed for transition, 
-                if(self.apply_transition() == False):
+                # if flames were designed for transition, 
+                # update the running flame
+                self.apply_transition(duration_sec = 10 if self.meditation_state == 1 else 30)
                 
-                    # read data
-                    eegdata = self.eeg_source.read_data()
+                # read data
+                eegdata = self.eeg_source.read_data()
 
-                    # data found                
-                    if(eegdata is not None and eegdata.is_empty() == False):
+                # data found                
+                if(eegdata is not None and eegdata.is_empty() == False):
 
-                        # [!] new meditation state reached
-                        if(self.meditation_state != eegdata.meditation_state \
-                            # and if transitionned less than a minute ago
-                            and self.frame_index_sincestate > self.maxfps * 30):
-                            # [>] set new state
-                            self.set_state(eegdata.meditation_state)
+                    # [!] new meditation state reached
+                    if(self.meditation_state != eegdata.meditation_state \
+                        # and if transitionned less than a minute ago
+                        and self.frame_index_sincestate > self.maxfps * 60):
+                        # [>] set new state
+                        self.set_state(eegdata.meditation_state)
 
-                        #TODO get heartbeat
-                        heartbeat = 60
-                        # send data to RabbitMQ bus
-                        self.rabbit.publish_heart(heartbeat)
+                    #TODO get heartbeat
+                    heartbeat = 60
+                    # send data to RabbitMQ bus
+                    self.rabbit.publish_heart(heartbeat)
 
-                        # transform fractal with new values from data
-                        self.animate(eegdata)
+                    # transform fractal with new values from data
+                    self.animate(eegdata)
 
-                        # update status bar
-                        show_status("Frame: %s/%s | EEG: %s | MEDITATION STATE: %s" 
-                                    %(self.frame_index,
-                                    self.frame_index_sincestate, 
-                                    eegdata.console_string() if eegdata is not None else "no data",
-                                    self.meditation_state ))
+                    # update status bar
+                    show_status("Frame: %s/%s | EEG: %s | MEDITATION STATE: %s" 
+                                %(self.frame_index,
+                                self.frame_index_sincestate, 
+                                eegdata.console_string() if eegdata is not None else "no data",
+                                self.meditation_state ))
+                # no data is found
+                else:
+                    # go to idling.
+                    self.keeprendering = False
 
-                    # no data is found
-                    else:
-                        # go to idling.
-                        self.keeprendering = False
             
                 # render with new values
                 self.render()
@@ -376,25 +380,23 @@ class MMEngine:
     # process new EEGData and animate flame
     def animate(self, eegdata):
         docontinue = True
-        if (self.flame.xform is None or len(self.flame.xform) == 0):
+        # if transition is set, animate the target flame
+        # otherwise the curren one
+        flame_to_move = self.transition_to if self.transition_to is not None else self.flame
+        if (flame_to_move.xform is None or len(flame_to_move.xform) == 0):
             return False
         try:
-            #if(self.frame_index % 10 == 2) : print(str(eegdata.waves))
-            # FLAME UPDATE (at least 125 frames apart)
-            # if(eegdata.blink == 1 and self.frame_index > 125):
-                # adjust form weights (from utils)
-                #normalize_weights(self.flame)
-                
-                # move window
-                #self.flame.reframe()
-
-                # update colors
-                #calculate_colors(self.flame.xform)
-
+            # animate one xform at a time
             dataindex = 5
-            for x in self.flame.xform:
+            for x in flame_to_move.xform:
                 if(x.animate and eegdata is not None):
                     # ROTATION
+                    # calculate rotation amount from data elements
+                    data = eegdata.waves[dataindex % len(eegdata.waves)]
+                    dataindex += 1 # next data from audiodata
+                    x.rotate(data * 1.5 * self.speed)
+
+                    # SCALE
                     # calculate rotation amount from data elements
                     data = eegdata.waves[dataindex % len(eegdata.waves)]
                     dataindex += 1 # next data from audiodata
