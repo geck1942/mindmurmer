@@ -26,15 +26,21 @@ class RabbitController(object):
 
         return
 
-    def _base_subscribe(self, consume_target_str, queue_name, callback):
+    def _base_subscribe(self, consume_target_str, queue_name, callback, existing_channel=None):
         try:
-            new_channel = self.open_channel()
-            new_channel.queue_declare(queue=queue_name)
-            new_channel.basic_consume(callback, queue=queue_name, no_ack=True)
-            new_channel.start_consuming()
+            if existing_channel:
+                channel = existing_channel
+            else:
+                channel = self.open_channel()
 
-            logging.info("waiting for {consume_target_str} state messages..".format(
-                consume_target_str=consume_target_str))
+            channel.queue_declare(queue=queue_name)
+            channel.basic_consume(callback, queue=queue_name, no_ack=True)
+
+            # if existing channel was supplied, let caller start consume on his own
+            if not existing_channel:
+                channel.start_consuming()
+                logging.info("waiting for {consume_target_str} state messages..".format(
+                    consume_target_str=consume_target_str))
         except Exception as e:
             print(repr(e))
 
@@ -69,11 +75,11 @@ class RabbitController(object):
             print('error during rabbitMQ channel creation: ' + str(ex))
             return None
 
-    def subscribe_meditation(self, callback):
-        self._base_subscribe("meditation state", self.EXCHANGE_STATE, callback)
+    def subscribe_meditation(self, callback, existing_channel=None):
+        self._base_subscribe("meditation state", self.EXCHANGE_STATE, callback, existing_channel=existing_channel)
 
-    def subscribe_heart_rate(self, callback):
-        self._base_subscribe("heart rate", self.EXCHANGE_HEART, callback)
+    def subscribe_heart_rate(self, callback, existing_channel=None):
+        self._base_subscribe("heart rate", self.EXCHANGE_HEART, callback, existing_channel=existing_channel)
 
     def subscribe_eegdata(self, callback):
         self._base_subscribe("EEG data", self.EXCHANGE_EEGDATA, callback)
