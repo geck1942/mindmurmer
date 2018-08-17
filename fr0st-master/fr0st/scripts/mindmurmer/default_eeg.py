@@ -35,13 +35,14 @@ class MMEngine:
         print("[>] _INIT")
         self.eeg_source = eeg_source
         self.frame_index = 0
-        self.speed = 0.1
+        self.speed = 0.4
         self.channels = 24
         self.sinelength = 300 # frames
         self.gui = gui
-        self.maxfps = 25 # target frames per second
+        self.maxfps = 20 # target frames per second
         self.states_flames = [ ]
         self.meditation_state = 1
+        self.user_connected = False
 
         # init rabbitMQ connection
         self.rabbit = RabbitController('localhost', 5672, 'guest', 'guest', '/')
@@ -80,49 +81,21 @@ class MMEngine:
         self.set_state(1, False)
         # start loop
 
-    def idle(self):
-        print("[>] IDLE")
-        self.frame_index = 0
-        self.frame_index_sincestate = 0
+    def run(self):
+        
+        print("[>] RUNNING")
         self.keeprendering = True
-
         while self.keeprendering:
+            
             # fps timer
             t0 = time.clock()
+
             try:
-
-                # read data
-                eegdata = self.eeg_source.read_data()
-
-                # apply transition
-                self.apply_transition(duration_sec = 60)
-
-                # no data
-                if(eegdata is None or eegdata.is_empty() == True):
-
-                    # do nothing during 5 minutes.
-                    if(self.frame_index_sincestate > self.maxfps * 60):
-                    # or transition to next state:
-                        self.set_state(set_next=True)
-
-                # data recived
+                if(self.user_connected):
+                    self.start()
                 else:
-                    # if inactive for more than 30 seconds
-                    if(self.frame_index > self.maxfps * 30):
-                        print("[ ] NEW SESSION")
-                        self.retreive_params()
-                        # back to state 1
-                        self.set_state(1)
-                    else:
-                        print("[ ] USER RECONNECTED")
-                    # stop idling
-                    self.keeprendering = False
-
-                # update status bar
-                show_status("Frame: %s/%s | IDLING" 
-                            %(self.frame_index,
-                            self.frame_index_sincestate))
-
+                    self.idle()
+    
                 # render with new values
                 self.render()
 
@@ -130,10 +103,9 @@ class MMEngine:
                 self.frame_index += 1
                 self.frame_index_sincestate += 1
 
-                
             except Exception as ex:
                 import traceback
-                print('[!] error during MMEngine idle loop: ' + str(ex))
+                print('[!] error during MMEngine RUN loop: ' + str(ex))
                 traceback.print_exc()
                 self.keeprendering = False
             finally:
@@ -142,81 +114,87 @@ class MMEngine:
                 if delay > 0. : time.sleep(delay)
                 else :  time.sleep(0.01)
 
-        # -- END of loop
-        self.start()
+        self.stop()
 
+
+
+
+    def idle(self):
+
+        # read data
+        eegdata = self.eeg_source.read_data()
+
+        # apply transition
+        self.apply_transition(duration_sec = 60)
+
+        # no data
+        if(eegdata is None or eegdata.is_empty() == True):
+
+            # do nothing during 5 minutes.
+            if(self.frame_index_sincestate > self.maxfps * 60):
+            # or transition to next state:
+                self.set_state(set_next=True)
+
+        # data recived
+        else:
+            # if inactive for more than 30 seconds
+            if(self.frame_index > self.maxfps * 30):
+                print("[ ] NEW SESSION")
+                self.retreive_params()
+                # back to state 1
+                self.set_state(1)
+            else:
+                print("[ ] USER RECONNECTED")
+            # stop idling
+            self.user_connected = True
+
+        # # update status bar
+        # show_status("Frame: %s/%s | IDLING" 
+        #             %(self.frame_index,
+        #             self.frame_index_sincestate))
 
     def start(self):
 
-        print("[>] START")
+        # if flames were designed for transition, 
+        # update the running flame
+        self.apply_transition(duration_sec = 10 if self.meditation_state == 1 else 30)
         
-        self.frame_index = 0
-        self.frame_index_sincestate = 0
-        self.keeprendering = True
+        # read data
+        eegdata = self.eeg_source.read_data()
 
-        while self.keeprendering:
-            # fps timer
-            t0 = time.clock()
-            try:
+        # data found                
+        if(eegdata is not None and eegdata.is_empty() == False):
 
-                # if flames were designed for transition, 
-                # update the running flame
-                self.apply_transition(duration_sec = 10 if self.meditation_state == 1 else 30)
-                
-                # read data
-                eegdata = self.eeg_source.read_data()
+            # [!] new meditation state reached
+            if(self.meditation_state != eegdata.meditation_state \
+                # and if transitionned less than a minute ago
+                and self.frame_index_sincestate > self.maxfps * 60):
+                # [>] set new state
+                self.set_state(eegdata.meditation_state)
 
-                # data found                
-                if(eegdata is not None and eegdata.is_empty() == False):
+            #TODO get heartbeat
+            heartbeat = 60
+            # send data to RabbitMQ bus
+            self.rabbit.publish_heart(heartbeat)
 
-                    # [!] new meditation state reached
-                    if(self.meditation_state != eegdata.meditation_state \
-                        # and if transitionned less than a minute ago
-                        and self.frame_index_sincestate > self.maxfps * 60):
-                        # [>] set new state
-                        self.set_state(eegdata.meditation_state)
+            # transform fractal with new values from data
+            self.animate(eegdata)
 
-                    #TODO get heartbeat
-                    heartbeat = 60
-                    # send data to RabbitMQ bus
-                    self.rabbit.publish_heart(heartbeat)
+            # # update status bar
+            # show_status("Frame: %s/%s | EEG: %s | MEDITATION STATE: %s" 
+            #             %(self.frame_index,
+            #             self.frame_index_sincestate, 
+            #             eegdata.console_string() if eegdata is not None else "no data",
+            #             self.meditation_state ))
 
-                    # transform fractal with new values from data
-                    self.animate(eegdata)
+        # no data is found
+        else:
+            print("[ ] USER DISCONNECTED")
+            # go to idling.
+            self.frame_index = 0
+            self.frame_index_sincestate = 0
+            self.user_connected = False
 
-                    # update status bar
-                    show_status("Frame: %s/%s | EEG: %s | MEDITATION STATE: %s" 
-                                %(self.frame_index,
-                                self.frame_index_sincestate, 
-                                eegdata.console_string() if eegdata is not None else "no data",
-                                self.meditation_state ))
-                # no data is found
-                else:
-                    # go to idling.
-                    self.keeprendering = False
-
-            
-                # render with new values
-                self.render()
-
-                # count frame number
-                self.frame_index += 1
-                self.frame_index_sincestate += 1
-
-                
-            except Exception as ex:
-                import traceback
-                print('error during MMEngine loop: ' + str(ex))
-                traceback.print_exc()
-                self.keeprendering = False
-            finally:
-                # sleep to keep a decent fps
-                delay = t0 + 1./self.maxfps - time.clock()
-                if delay > 0. : time.sleep(delay)
-                else :  time.sleep(0.01)
-
-        # -- END of loop
-        self.idle()
             
     def stop(self):
         print("[>] STOP")
@@ -238,8 +216,6 @@ class MMEngine:
             newstate = self.meditation_state - 1 if self.meditation_state > 1 else 5
         elif(set_next):
             newstate = self.meditation_state + 1 if self.meditation_state < 5 else 1
-        # else it's a number
-        print("[ ] TRANSITION TO STATE %s" %(newstate))
 
         # save state
         self.meditation_state = newstate
@@ -379,7 +355,6 @@ class MMEngine:
         
     # process new EEGData and animate flame
     def animate(self, eegdata):
-        docontinue = True
         # if transition is set, animate the target flame
         # otherwise the curren one
         flame_to_move = self.transition_to if self.transition_to is not None else self.flame
@@ -387,43 +362,39 @@ class MMEngine:
             return False
         try:
             # animate one xform at a time
-            dataindex = 5
-            for x in flame_to_move.xform:
-                if(x.animate and eegdata is not None):
-                    # ROTATION
-                    # calculate rotation amount from data elements
-                    data = eegdata.waves[dataindex % len(eegdata.waves)]
-                    dataindex += 1 # next data from audiodata
-                    x.rotate(data * 1.5 * self.speed)
+            form = flame_to_move.xform[self.frame_index_sincestate % len(flame_to_move.xform)]
+            if(form.animate and eegdata is not None):
+                # ROTATION
+                # calculate rotation amount from BETA
+                rotate_delta = eegdata.beta
+                form.rotate(rotate_delta * 1.0 * self.speed)
 
-                    # SCALE
-                    # calculate rotation amount from data elements
-                    data = eegdata.waves[dataindex % len(eegdata.waves)]
-                    dataindex += 1 # next data from audiodata
-                    x.rotate(data * 1.5 * self.speed)
+                # MOVEMENT
+                # calculate move amount from GAMMA
+                # every n frames is a cycle of X back and forth.
+                move_delta = eegdata.gamma * np.sin(self.frame_index * (np.pi * 2.0) / (self.sinelength * 1.0))
+                form.move(move_delta * 0.01 * self.speed)
 
-                    # MOVEMENT
-                    # calculate move amount from data elements
-                    data = eegdata.waves[dataindex % len(eegdata.waves)]
-                    dataindex += 1 # next data from audiodata
-                    # every n frames is a cycle of X back and forth.
-                    data *= np.sin(self.frame_index * (np.pi * 2) / self.sinelength)
-                    mov_delta = data * 0.01 * self.speed
-                    x.move(mov_delta)
+                # SCALE
+                # calculate rotation amount from DELTA
+                # every n frames is a cycle of X back and forth.
+                scale_delta = eegdata.delta * np.sin(self.frame_index * (np.pi * 2.0) / (self.sinelength * 5.0))
+                form.scale(1 + (scale_delta * 0.01 * self.speed))
 
-                    # # ZOOM
-                    # # calculate zoom amount from data elements
-                    # data = eegdata.waves[dataindex % len(eegdata.waves)]
-                    # dataindex += 1 # next data from audiodata
-                    # # every n frames is a cycle of X back and forth.
-                    # data *= np.cos(self.frame_index * (np.pi * 2) / self.sinelength)
-                    # zoom_delta = data * 0.01 * self.speed
-                    # x.zoom(1 + zoom_delta)
+
+                # # ZOOM
+                # # calculate zoom amount from data elements
+                # data = eegdata.waves[dataindex % len(eegdata.waves)]
+                # dataindex += 1 # next data from audiodata
+                # # every n frames is a cycle of X back and forth.
+                # data *= np.cos(self.frame_index * (np.pi * 2) / self.sinelength)
+                # zoom_delta = data * 0.01 * self.speed
+                # form.zoom(1 + zoom_delta)
 
             return True
         except Exception as ex:
             logging.exception(ex)
-            print('[!] error during rendering: ' + str(ex))
+            print('[!] error during animation: ' + str(ex))
 
             # SHOW preview on Fr0st
             return False
@@ -454,5 +425,5 @@ eeg = EEGFromRabbitMQ('localhost', 5672, 'guest', 'guest', '/')
 engine = MMEngine(eeg, _self, audio_folder)
 
 engine.gui_start()
-engine.idle()
+engine.run()
 print('[x] - END SCRIPT -')

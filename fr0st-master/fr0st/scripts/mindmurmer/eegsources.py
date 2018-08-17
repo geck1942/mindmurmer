@@ -15,11 +15,11 @@ class EEGData():
         # 5 waves * n channels + blink + med_state
         self.channels = (len(values)-2) / 5
         # each waves is average of 4 channels
-        self.alpha = np.average(values[self.channels * 0 : self.channels * 1])
-        self.beta  = np.average(values[self.channels * 1 : self.channels * 2])
-        self.gamma = np.average(values[self.channels * 2 : self.channels * 3])
-        self.delta = np.average(values[self.channels * 3 : self.channels * 4])
-        self.theta = np.average(values[self.channels * 4 : self.channels * 5])
+        self.alpha = np.mean(values[self.channels * 0 : self.channels * 1])
+        self.beta  = np.mean(values[self.channels * 1 : self.channels * 2])
+        self.gamma = np.mean(values[self.channels * 2 : self.channels * 3])
+        self.delta = np.mean(values[self.channels * 3 : self.channels * 4])
+        self.theta = np.mean(values[self.channels * 4 : self.channels * 5])
         self.raw_waves = values[0 : self.channels * 5]
         
         # blink is 0 or 1
@@ -165,7 +165,7 @@ class EEGFromJSONFile(EEGSource):
 class EEGFromRabbitMQ(EEGSource):
     def __init__(self, host, port, user, password, virtualhost):
         super(EEGFromRabbitMQ, self).__init__()
-        print('EEGFromRabbitMQ Started')
+        print('[ ] EEGFromRabbitMQ Started')
         # open json file
 
         # Access the CLODUAMQP_URL environment variable and parse it (fallback to localhost)
