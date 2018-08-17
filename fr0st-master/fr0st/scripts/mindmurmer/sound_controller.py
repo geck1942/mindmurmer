@@ -3,6 +3,7 @@ import logging
 import swmixer
 import time
 import argparse
+import threading
 
 from threading import Thread
 from collections import defaultdict
@@ -58,8 +59,6 @@ class MindMurmurSoundScapeController(object):
 
 		self._validate_audio_files_and_prep_data()
 
-		self.bus.subscribe_meditation(self.process_meditation_state_command)
-		self.bus.subscribe_heart_rate(self.process_heart_rate_command)
 
 	def process_meditation_state_command(self, channel, method, properties, body):
 		logging.info(("received meditation command with body \"{body}\"").format(body=body))
@@ -252,6 +251,18 @@ class MindMurmurSoundScapeController(object):
 		stage_heartbeat = self._get_meditation_stage_heartbeat_track_for_stage(self.current_stage or 0)
 		self._play_heartbeat(stage_heartbeat)
 
+	def listen(self):
+		listening_task_state = threading.Thread(name="listening_task_state", target=self.listen_to_state)
+		listening_task_state.start()
+		
+		listening_task_heart = threading.Thread(name="listening_task_heart", target=self.listen_to_heartrate)
+		listening_task_heart.start()
+
+	def listen_to_state(self):
+		self.bus.subscribe_meditation(self.process_meditation_state_command, channel_number = 1)
+	def listen_to_heartrate(self):
+		self.bus.subscribe_heart_rate(self.process_heart_rate_command,  channel_number = 2)
+
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='MindMurmur SoundScape Controller.')
@@ -271,6 +282,7 @@ if __name__ == "__main__":
 	try:
 		mmhac = MindMurmurSoundScapeController(args.audio_folder, args.up_transition_sound_filename,
 											   args.down_transition_sound_filename, args.sample_rate)
+		mmhac.listen()
 		while 1:
 			time.sleep(0.04)
 

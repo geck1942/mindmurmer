@@ -1,5 +1,6 @@
 import logging
 import time
+import numpy
 
 from rabbit_controller import RabbitController
 
@@ -13,7 +14,7 @@ def set_to_stage(stage):
 	bus.publish_state(stage)
 
 def play_heartbet():
-	bus.publish_heart(75)
+	bus.publish_heart(numpy.random.randint(60,75))
 
 logging.info("requesting to set mode to 0")
 set_to_stage(0)

@@ -26,9 +26,9 @@ class RabbitController(object):
 
         return
 
-    def _base_subscribe(self, consume_target_str, queue_name, callback):
+    def _base_subscribe(self, consume_target_str, queue_name, callback, channel_number = 0):
         try:
-            new_channel = self.open_channel()
+            new_channel = self.open_channel(channel_number)
             new_channel.queue_declare(queue=queue_name)
             new_channel.basic_consume(callback, queue=queue_name, no_ack=True)
             new_channel.start_consuming()
@@ -56,11 +56,11 @@ class RabbitController(object):
             if self.open_connection:
                 self.open_connection.close()
 
-    def open_channel(self):
+    def open_channel(self, number = 0):
         try:
 
             self.open_connection = pika.BlockingConnection(self.parameters)
-            self.active_channel = self.open_connection.channel()
+            self.active_channel = self.open_connection.channel(number) if number > 0 else self.open_connection.channel()
             # self.on_channel_open(self.active_channel)
 
             return self.active_channel
@@ -69,14 +69,14 @@ class RabbitController(object):
             print('error during rabbitMQ channel creation: ' + str(ex))
             return None
 
-    def subscribe_meditation(self, callback):
-        self._base_subscribe("meditation state", self.EXCHANGE_STATE, callback)
+    def subscribe_meditation(self, callback, channel_number = 0):
+        self._base_subscribe("meditation state", self.EXCHANGE_STATE, callback, channel_number)
 
-    def subscribe_heart_rate(self, callback):
-        self._base_subscribe("heart rate", self.EXCHANGE_HEART, callback)
+    def subscribe_heart_rate(self, callback, channel_number = 0):
+        self._base_subscribe("heart rate", self.EXCHANGE_HEART, callback, channel_number)
 
-    def subscribe_eegdata(self, callback):
-        self._base_subscribe("EEG data", self.EXCHANGE_EEGDATA, callback)
+    def subscribe_eegdata(self, callback, channel_number = 0):
+        self._base_subscribe("EEG data", self.EXCHANGE_EEGDATA, callback, channel_number)
 
     def publish_color(self, color):
         color_command = ColorControlCommand(color.red, color.green, color.blue)
