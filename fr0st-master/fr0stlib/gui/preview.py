@@ -116,25 +116,28 @@ class PreviewFrame(wx.Frame):
 
     @Bind(wx.EVT_SIZE)
     def OnResize(self, e):
-        if not self.image.oldbmp:
-            self.image.oldbmp = self.image.bmp
-        image = wx.ImageFromBitmap(self.image.oldbmp)
+        try:
+            if not self.image.oldbmp:
+                self.image.oldbmp = self.image.bmp
+            image = wx.ImageFromBitmap(self.image.oldbmp)
 
 
-        # TODO: This was here for windows. Need to find a clean way to make
-        # resize work nice and consistent cross-platform.
-##        if self._lastsize == (0,0):
-##            return
-        
-        pw, ph = map(float, self.GetPanelSize())
-        fw, fh = map(float, self.parent.flame.size)
+            # TODO: This was here for windows. Need to find a clean way to make
+            # resize work nice and consistent cross-platform.
+    ##        if self._lastsize == (0,0):
+    ##            return
+            
+            pw, ph = map(float, self.GetPanelSize())
+            fw, fh = map(float, self.parent.flame.size)
 
-        ratio = min(pw/fw, ph/fh)
-        image.Rescale(int(fw * ratio), int(fh * ratio))
-        self.image.bmp = wx.BitmapFromImage(image)
+            ratio = min(pw/fw, ph/fh)
+            image.Rescale(int(fw * ratio), int(fh * ratio))
+            self.image.bmp = wx.BitmapFromImage(image)
 
-        self.Refresh()
-        e.Skip()
+            self.Refresh()
+            e.Skip()
+        except:
+            pass
 
 
     @Bind(wx.EVT_IDLE)
