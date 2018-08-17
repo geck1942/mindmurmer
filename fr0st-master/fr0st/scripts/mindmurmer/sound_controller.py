@@ -58,8 +58,11 @@ class MindMurmurSoundScapeController(object):
 
 		self._validate_audio_files_and_prep_data()
 
-		self.bus.subscribe_meditation(self.process_meditation_state_command)
-		self.bus.subscribe_heart_rate(self.process_heart_rate_command)
+		sound_controller_channel = self.bus.open_channel()
+		self.bus.subscribe_meditation(self.process_meditation_state_command, existing_channel=sound_controller_channel)
+		self.bus.subscribe_heart_rate(self.process_heart_rate_command, existing_channel=sound_controller_channel)
+		logging.info("waiting for meditation state and heart rates messages..")
+		sound_controller_channel.start_consuming()
 
 	def process_meditation_state_command(self, channel, method, properties, body):
 		logging.info(("received meditation command with body \"{body}\"").format(body=body))
@@ -271,8 +274,5 @@ if __name__ == "__main__":
 	try:
 		mmhac = MindMurmurSoundScapeController(args.audio_folder, args.up_transition_sound_filename,
 											   args.down_transition_sound_filename, args.sample_rate)
-		while 1:
-			time.sleep(0.04)
-
 	except Exception, e:
 		logging.exception(e)
