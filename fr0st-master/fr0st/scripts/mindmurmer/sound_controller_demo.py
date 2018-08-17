@@ -63,5 +63,3 @@ for i in range(1, 6):
 	for j in range(4):
 		time.sleep(2)
 		play_heartbet()
-
-connection.close()
