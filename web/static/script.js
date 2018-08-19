@@ -7,6 +7,8 @@ function start() {
     window.history.pushState({}, document.title, '/');
     // Re-render history every 80ms, should be ok on mobile device?
     setInterval(render, 80);
+    // Get new history every second
+    setInterval(getHistory, 1000)
 }
 
 function updateHeartRate() {
@@ -33,4 +35,24 @@ function format_history(id, hist, now) {
 
         return ts + ' (' + diffs + ' ago): ' + v;
     }).join('\n');
+}
+
+function getHistory() {
+    since = 0;
+    if (window.state_history.length > 0 &&
+        window.state_history[0][0] > since) {
+        since = window.state_history[0][0];
+    }
+    if (window.heart_rate_history.length > 0 &&
+        window.heart_rate_history[0][0] > since) {
+        since = window.heart_rate_history[0][0];
+    }
+
+    $.ajax({
+        url: '/api/history?since=' + since,
+        success: function(result) {
+            window.state_history = $.merge(result.state, window.state_history);
+            window.heart_rate_history = $.merge(result.heart_rate, window.heart_rate_history);
+        },
+    });
 }

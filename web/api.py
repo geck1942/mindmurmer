@@ -7,6 +7,12 @@ class API():
         self.bus = bus
         self.runner = runner
 
+    def history(self, since):
+        return {
+            'state': self.bus.get_state_history(since),
+            'heart_rate': self.bus.get_heart_rate_history(since),
+        }
+
     def run(self, name):
         exitcode = self.runner.run(name)
         if exitcode == 0:

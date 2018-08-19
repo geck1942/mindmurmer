@@ -1,4 +1,6 @@
-from flask import Flask, redirect, request, render_template, send_from_directory
+import datetime
+
+from flask import Flask, redirect, request, render_template, send_from_directory, jsonify
 from rabbit_controller import RabbitController
 from api import API
 from bus import Bus
@@ -39,6 +41,13 @@ def send_static(path):
 def send_fonts(path):
     """ Static serving for fonts directory """
     return send_from_directory('fonts', path)
+
+
+@app.route('/api/history', methods=['GET'])
+def api_history():
+    since_millis = float(request.args.get('since'))
+    since = datetime.datetime.utcfromtimestamp(since_millis/1000.0)
+    return jsonify(api.history(since))
 
 
 @app.route('/api/run/<path:path>', methods=['POST'])

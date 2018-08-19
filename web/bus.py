@@ -59,11 +59,17 @@ class Bus():
 
         self.heart_rate = heart_rate
 
-    def get_heart_rate_history(self):
-        return [pretty_message(m) for m in self.heart_rate_messages]
+    def get_heart_rate_history(self, since=None):
+        messages = self.heart_rate_messages
+        if since is not None:
+            messages = filter(lambda m: m[0] > since, messages)
+        return [pretty_message(m) for m in messages]
 
-    def get_state_history(self):
-        return [pretty_message(m) for m in self.state_messages]
+    def get_state_history(self, since=None):
+        messages = self.state_messages
+        if since is not None:
+            messages = filter(lambda m: m[0] > since, messages)
+        return [pretty_message(m) for m in messages]
 
     def get_heart_rate(self):
         return self.heart_rate or 'No Heart Rate Seen On MQ Bus, Has Webserver Just Started?'
