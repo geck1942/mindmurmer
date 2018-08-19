@@ -14,7 +14,7 @@ function updateHeartRate() {
 }
 
 function render() {
-    now = moment().utc();
+    now = moment();
     format_history('state_history', window.state_history, now);
     format_history('heart_rate_history', window.heart_rate_history, now);
 }
@@ -22,8 +22,8 @@ function render() {
 function format_history(id, hist, now) {
     el = document.getElementById(id);
     el.innerText = hist.map(function(entry) {
-        t = moment(entry[0]).utc();
-        ts = t.format('MM/DD hh:mm:ss.SSS');
+        t = moment.utc(entry[0]);
+        ts = t.local().format('MM/DD hh:mm:ss.SSS');
         diff = moment.duration(now.diff(t));
         diffs = diff.hours().toString().padStart(2, '0') + ':'
             + diff.minutes().toString().padStart(2, '0') + ':'
@@ -31,6 +31,6 @@ function format_history(id, hist, now) {
             + diff.milliseconds().toString().padStart(3, '0');
         v = entry[1];
 
-        return ts + ' (' + diffs + ' ago): ' + v
+        return ts + ' (' + diffs + ' ago): ' + v;
     }).join('\n');
 }

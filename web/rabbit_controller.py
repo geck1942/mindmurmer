@@ -141,7 +141,7 @@ class BaseCommand(object):
 
     def get_timestamp(self):
         """ REVISIT: If there is a timestamp in the message, use that instead """
-        return datetime.datetime.utc()
+        return datetime.datetime.utcnow()
 
 class HeartRateCommand(BaseCommand):
     """An instance of a heart rate command

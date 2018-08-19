@@ -12,7 +12,7 @@ epoch = datetime.datetime.utcfromtimestamp(0)
 def unix_time_millis(dt):
     return (dt - epoch).total_seconds() * 1000.0
 
-def pretty_message(m, now):
+def pretty_message(m):
     return [unix_time_millis(m[0]), str(m[1])]
 
 class Bus():
@@ -60,12 +60,10 @@ class Bus():
         self.heart_rate = heart_rate
 
     def get_heart_rate_history(self):
-        now = datetime.datetime.now()
-        return [pretty_message(m, now) for m in self.heart_rate_messages]
+        return [pretty_message(m) for m in self.heart_rate_messages]
 
     def get_state_history(self):
-        now = datetime.datetime.now()
-        return [pretty_message(m, now) for m in self.state_messages]
+        return [pretty_message(m) for m in self.state_messages]
 
     def get_heart_rate(self):
         return self.heart_rate or 'No Heart Rate Seen On MQ Bus, Has Webserver Just Started?'
@@ -76,13 +74,13 @@ class Bus():
     def send_heart_rate(self, heart_rate):
         if sys.argv[1] == 'test':
             self.heart_rate = heart_rate
-            self.heart_rate_messages.insert(0, (datetime.datetime.now(), heart_rate))
+            self.heart_rate_messages.insert(0, (datetime.datetime.utcnow(), heart_rate))
         else:
             self.rabbit.publish_heart(heart_rate)
 
     def send_state(self, state):
         if sys.argv[1] == 'test':
             self.state = state
-            self.state_messages.insert(0, (datetime.datetime.now(), state))
+            self.state_messages.insert(0, (datetime.datetime.utcnow(), state))
         else:
             self.rabbit.publish_state(state)
