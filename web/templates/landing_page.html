@@ -62,8 +62,8 @@
     <p>Trigger Heart Rate:</p>
     <form action="/api/heart_rate" method="post" style="display:inline">
       <label for="heart_rate">Heart Rate:</label>
-      <input type="range" class="form-control-range" id="heart_rate_slider" name="heart_rate" value="{{heart_rate|int}}" min="0" max="180" oninput="updateHeartRate()">
-      <p>Selected Value: <span id="heart_rate">{{heart_rate|int}}</span></p>
+      <input type="range" class="form-control-range" id="heart_rate_slider" name="heart_rate" value="{{heart_rate|int or 60}}" min="0" max="180" oninput="updateHeartRate()">
+      <p>Selected Value: <span id="heart_rate">{{heart_rate|int or 60}}</span></p>
       <button class="btn btn-primary">Trigger Heart Rate</button>
     </form>
   </div>
