@@ -2,18 +2,22 @@
 import sys
 import os.path
 import ctypes
-import ctypes.wintypes
 
-Psapi = ctypes.WinDLL('Psapi.dll')
-EnumProcesses = Psapi.EnumProcesses
-EnumProcesses.restype = ctypes.wintypes.BOOL
-GetProcessImageFileName = Psapi.GetProcessImageFileNameA
-GetProcessImageFileName.restype = ctypes.wintypes.DWORD
+# WARNING: not tested as I can currently only run in Mac (cadams)
+if os.name == 'nt':
+    import ctypes.wintypes
 
-Kernel32 = ctypes.WinDLL('kernel32.dll')
-OpenProcess = Kernel32.OpenProcess
-OpenProcess.restype = ctypes.wintypes.HANDLE
-CloseHandle = Kernel32.CloseHandle
+if sys.argv[1] != 'test':
+    Psapi = ctypes.WinDLL('Psapi.dll')
+    EnumProcesses = Psapi.EnumProcesses
+    EnumProcesses.restype = ctypes.wintypes.BOOL
+    GetProcessImageFileName = Psapi.GetProcessImageFileNameA
+    GetProcessImageFileName.restype = ctypes.wintypes.DWORD
+
+    Kernel32 = ctypes.WinDLL('kernel32.dll')
+    OpenProcess = Kernel32.OpenProcess
+    OpenProcess.restype = ctypes.wintypes.HANDLE
+    CloseHandle = Kernel32.CloseHandle
 
 MAX_PATH = 260
 PROCESS_QUERY_INFORMATION = 0x0400
@@ -23,6 +27,11 @@ bad_color = 'red'
 
 
 def running_if_process_found(id, name, needle):
+    if sys.argv[1] == 'test':
+        ProcessId = 123456
+        ProcessName = needle + '.exe'
+        return _running(id, name, 'PID ' + str(ProcessId) + ' found containing string "' + needle + '": "' + ProcessName + '"')
+
     count = 32
     while True:
         ProcessIds = (ctypes.wintypes.DWORD*count)()
@@ -45,7 +54,7 @@ def running_if_process_found(id, name, needle):
                 filename = os.path.basename(ImageFileName.value)
                 if needle in filename:
                     CloseHandle(hProcess)
-                    return _running(id, name, 'PID ' + ProcessId + ' found containing string "' + needle + '": "' + ImageFileName.value + '"')
+                    return _running(id, name, 'PID ' + str(ProcessId) + ' found containing string "' + needle + '": "' + ImageFileName.value + '"')
             CloseHandle(hProcess)
 
     return _not_running(id, name, 'No processes found containing string "' + needle + '"')
@@ -69,7 +78,7 @@ class Status():
             self._status_sound(),
         ]
 
-        bads = filter(lambda s: s.color != running_color, statuses)
+        bads = filter(lambda s: s['color'] != running_color, statuses)
 
         if len(bads) == 0:
             all_good_status = {'id': "all", 'name': "ALL", 'color': running_color, 'text': "running", 'details': "All engine running"}

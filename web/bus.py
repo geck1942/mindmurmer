@@ -1,9 +1,14 @@
+import datetime
 import logging
+import sys
 
 from rabbit_controller import MeditationStateCommand, HeartRateCommand
 
 MAX_MESSAGES = 500  # Number of messages to keep for web UI
 
+
+def pretty_message(m, now):
+    return m[0].strftime('%m/%d %H:%M:%S.%f')[:-3] + ' (' + str(now - m[0])[:-3] + 's ago): ' + m[1]
 
 class Bus():
 
@@ -14,11 +19,12 @@ class Bus():
         self.heart_rate = None
         self.state = None
 
-        channel = self.rabbit.open_channel()
-        self.bus.subscribe_meditation(self.process_meditation_state_command, existing_channel=channel)
-        self.bus.subscribe_heart_rate(self.process_heart_rate_command, existing_channel=channel)
-        logging.info("web: waiting for meditation state and heart rates messages..")
-        channel.start_consuming()
+        if sys.argv[1] != 'test':
+            channel = self.rabbit.open_channel()
+            self.bus.subscribe_meditation(self.process_meditation_state_command, existing_channel=channel)
+            self.bus.subscribe_heart_rate(self.process_heart_rate_command, existing_channel=channel)
+            logging.info("web: waiting for meditation state and heart rates messages..")
+            channel.start_consuming()
 
     def process_meditation_state_command(self, channel, method, properties, body):
         logging.info(("received meditation command with body \"{body}\"").format(body=body))
@@ -27,7 +33,7 @@ class Bus():
 
         state = command.get_state()
         timestamp = command.get_timestamp()
-        self.state_messages.append((timestamp, state))
+        self.state_messages.insert(0, (timestamp, state))
 
         # Remove old messages to not run out of memory
         self.state_messages = self.state_messages[-MAX_MESSAGES:]
@@ -41,7 +47,7 @@ class Bus():
 
         heart_rate = command.get_heart_rate()
         timestamp = command.get_timestamp()
-        self.heart_rate_messages.append((timestamp, heart_rate))
+        self.heart_rate_messages.insert(0, (timestamp, heart_rate))
 
         # Remove old messages to not run out of memory
         self.heart_rate_messages = self.heart_rate_messages[-MAX_MESSAGES:]
@@ -49,10 +55,12 @@ class Bus():
         self.heart_rate = heart_rate
 
     def get_heart_rate_history(self):
-        return self.heart_rate_messages
+        now = datetime.datetime.now()
+        return [pretty_message(m, now) for m in self.heart_rate_messages]
 
     def get_state_history(self):
-        return self.state_messages
+        now = datetime.datetime.now()
+        return [pretty_message(m, now) for m in self.state_messages]
 
     def get_heart_rate(self):
         return self.heart_rate or 'No Heart Rate Seen On MQ Bus, Has Webserver Just Started?'
@@ -61,7 +69,15 @@ class Bus():
         return self.state or 'No Meditation State Seen On MQ Bus, Has Webserver Just Started?'
 
     def send_heart_rate(self, heart_rate):
-        return self.rabbit.publish_heart(heart_rate)
+        if sys.argv[1] == 'test':
+            self.heart_rate = heart_rate
+            self.heart_rate_messages.insert(0, (datetime.datetime.now(), heart_rate))
+        else:
+            self.rabbit.publish_heart(heart_rate)
 
     def send_state(self, state):
-        return self.rabbit.publish_state(state)
+        if sys.argv[1] == 'test':
+            self.state = state
+            self.state_messages.insert(0, (datetime.datetime.now(), state))
+        else:
+            self.rabbit.publish_state(state)

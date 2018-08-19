@@ -1,4 +1,4 @@
-import sys
+import traceback
 
 
 class API():
@@ -16,14 +16,14 @@ class API():
 
     def send_state(self, name):
         try:
-            result = self.bus.send_state(name)
-            return True, 'Meditation Level ' + name + ' set! Result: ' + repr(result)
+            self.bus.send_state(name)
+            return True, 'Meditation Level ' + name + ' set!'
         except:
-            return False, 'Meditation Level ' + name + ' could not be set: ' + sys.exc_info()[:2]
+            return False, 'Meditation Level ' + name + ' could not be set: ' + traceback.format_exc()
 
     def send_heart_rate(self, name):
         try:
-            result = self.bus.send_heart_rate(name)
-            return True, 'Heartrate ' + name + ' set! Result: ' + repr(result)
+            self.bus.send_heart_rate(name)
+            return True, 'Heart Rate ' + name + ' set!'
         except:
-            return False, 'Heartrate ' + name + ' could not be set: ' + sys.exc_info()[:2]
+            return False, 'Heart Rate ' + name + ' could not be set: ' + traceback.format_exc()

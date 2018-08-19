@@ -46,9 +46,15 @@ def api_run(path):
     return redirect_with_alert(api.run(path))
 
 
-@app.route('/api/fr0stlevel/<path:path>', methods=['POST'])
-def api_fr0stlevel(path):
-    return redirect_with_alert(api.fr0stlevel(path))
+@app.route('/api/state/<path:path>', methods=['POST'])
+def api_state(path):
+    return redirect_with_alert(api.send_state(path))
+
+
+@app.route('/api/heart_rate', methods=['POST'])
+def api_heart_rate():
+    heart_rate = request.form['heart_rate']
+    return redirect_with_alert(api.send_heart_rate(heart_rate))
 
 
 def redirect_with_alert(result):

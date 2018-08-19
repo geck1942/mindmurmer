@@ -4,7 +4,7 @@
   {% if alert_success %}
   <div class="alert alert-success alert-dismissable show">
     Success! {{alert_success}}
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close" onclick="removeAlert()">
       <span aria-hidden="true">&times;</span>
     </button>
   </div>
@@ -12,7 +12,7 @@
   {% if alert_error %}
   <div class="alert alert-danger alert-dismissable show">
     Error: {{alert_error}}
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close" onclick="removeAlert()">
       <span aria-hidden="true">&times;</span>
     </button>
   </div>
@@ -30,34 +30,41 @@
       <p>{{status.name}} is {{status.text}}. Details: {{status.details}}</p>
       <p>Controls for {{status.name}}:</p>
       <form action="/api/run/{{status.id}}" method="post" style="display:inline">
-        <button class="btn-danger">Run {{status.id}} script<br>(WARNING: careful to not run it twice)</button>
+        <button class="btn btn-danger">Run {{status.id}} script<br>(WARNING: careful to not run it twice)</button>
       </form>
     </div>
     {% endfor %}
   </div>
   <hr>
   <div>
-    <p>Current Meditation Level: {{fr0stlevel}}</p>
-  </div>
-  <hr>
-  <div>
+    <p>Current Meditation Level: {{state}}</p>
     <p>Trigger Meditation Level:</p>
-    {% for level in fr0stlevels %}
-    <form action="/api/fr0stlevel/{{level.id}}" method="post" style="display:inline">
-      <button class="btn-default">{{level.name}}</button>
+    {% for level in states %}
+    <form action="/api/state/{{level.id}}" method="post" style="display:inline">
+      <button class="btn btn-default">{{level.name}}</button>
     </form>
     {% endfor %}
   </div>
   <hr>
   <div>
-    <p>Current Heart Rate: {{heartrate}}</p>
-    <p>Heart Rate History</p>
-    <pre>{{'\n'.join(heartrate_history)}}</pre>
+    <p>Meditation Level History</p>
+    <pre>{{'\n'.join(state_history)}}</pre>
   </div>
   <hr>
   <div>
-    <p>MQ Message History</p>
-    <pre>{{'\n'.join(mqmessages)}}</pre>
+    <p>Current Heart Rate: {{heart_rate}}</p>
+    <p>Trigger Heart Rate:</p>
+    <form action="/api/heart_rate" method="post" style="display:inline">
+      <label for="heart_rate">Heart Rate:</label>
+      <input type="range" class="form-control-range" id="heart_rate_slider" name="heart_rate" value="{{heart_rate}}" min="0" max="180" oninput="updateHeartRate()">
+      <p>Selected Value: <span id="heart_rate">{{heart_rate}}</span></p>
+      <button class="btn btn-primary">Trigger Heart Rate</button>
+    </form>
+  </div>
+  <hr>
+  <div>
+    <p>Heart Rate History</p>
+    <pre>{{'\n'.join(heart_rate_history)}}</pre>
   </div>
 </div>
 

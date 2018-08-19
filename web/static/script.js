@@ -3,8 +3,10 @@ function showhideStatus(id) {
 	style.display = style.display === 'block' ? 'none' : 'block';
 }
 
-function hideAlert(type) {
-    for (var e of document.getElementsByClassName('alert-' + type)) {
-        e.style.display = 'none';
-    }
+function removeAlert() {
+    window.history.pushState({}, document.title, '/');
+}
+
+function updateHeartRate() {
+    document.getElementById('heart_rate').innerText = document.getElementById('heart_rate_slider').value
 }

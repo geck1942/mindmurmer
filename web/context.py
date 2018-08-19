@@ -8,7 +8,7 @@ class Context():
         self.bus = bus
         self.status = status
 
-    def get_context(self):
+    def fetch(self):
         return {
             'statuses': self.status.get_statuses(),
             'state': self.bus.get_state(),
