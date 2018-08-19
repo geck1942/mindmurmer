@@ -2,21 +2,25 @@
 {% block content %}
 <div class="col-md-12">
   {% if alert_success %}
-  <div class="alert-success">
-    <p>Success! {{alert_success}}</p>
-    <a href="#" onclick="hideAlert('success')>x</a>
+  <div class="alert alert-success alert-dismissable show">
+    Success! {{alert_success}}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
   </div>
   {% endif %}
   {% if alert_error %}
-  <div class="alert-danger">
-    <p>Error: {{alert_error}}</p>
-    <a href="#" onclick="hideAlert('danger')">x</a>
+  <div class="alert alert-danger alert-dismissable show">
+    Error: {{alert_error}}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
   </div>
   {% endif %}
   <h3>Mind Murmur Controller</h3>
   <hr>
   <div>
-    <p>Status (Tap To Start/Stop):</p>
+    <p>Status (Tap To Execute Run Script):</p>
     {% for status in statuses %}
     <div style="display:inline;border:1px;background-color:{{status.color}};padding:5px" onclick="showhideStatus('{{status.id}}')">{{status.name}}</div>
     {% endfor %}
@@ -25,11 +29,8 @@
       <hr>
       <p>{{status.name}} is {{status.text}}. Details: {{status.details}}</p>
       <p>Controls for {{status.name}}:</p>
-      <form action="/api/start/{{status.id}}" method="post" style="display:inline">
-        <button class="btn-primary">Start</button>
-      </form>
-      <form action="/api/stop/{{status.id}}" method="post" style="display:inline">
-        <button class="btn-danger">STOP</button>
+      <form action="/api/run/{{status.id}}" method="post" style="display:inline">
+        <button class="btn-danger">Run {{status.id}} script<br>(WARNING: careful to not run it twice)</button>
       </form>
     </div>
     {% endfor %}
