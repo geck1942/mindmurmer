@@ -7,8 +7,13 @@ from rabbit_controller import MeditationStateCommand, HeartRateCommand
 MAX_MESSAGES = 500  # Number of messages to keep for web UI
 
 
+epoch = datetime.datetime.utcfromtimestamp(0)
+
+def unix_time_millis(dt):
+    return (dt - epoch).total_seconds() * 1000.0
+
 def pretty_message(m, now):
-    return m[0].strftime('%m/%d %H:%M:%S.%f')[:-3] + ' (' + str(now - m[0])[:-3] + 's ago): ' + m[1]
+    return [unix_time_millis(m[0]), str(m[1])]
 
 class Bus():
 

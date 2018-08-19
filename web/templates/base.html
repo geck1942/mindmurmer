@@ -14,15 +14,18 @@
     <link rel="stylesheet" href="/static/styles.css">
   </head>
 
-  <body onload="removeAlerts()">
+  <body onload="start()">
     <div class="container">
       {% block content %}
       {% endblock %}
       </div>
-    <script src="/static/script.js"></script>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="/static/jquery.min.js"></script>
     <!-- Latest compiled and minified JavaScript -->
     <script src="/static/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <!-- moment.js date time maniulation library -->
+    <script src="/static/moment.min.js"></script>
+    <!-- Mind murmur scripts -->
+    <script src="/static/script.js"></script>
   </body>
 </html>

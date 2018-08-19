@@ -48,7 +48,7 @@
   <hr>
   <div>
     <p>Meditation Level History</p>
-    <pre>{{'\n'.join(state_history)}}</pre>
+    <pre id="state_history"></pre>
   </div>
   <hr>
   <div>
@@ -64,8 +64,12 @@
   <hr>
   <div>
     <p>Heart Rate History</p>
-    <pre>{{'\n'.join(heart_rate_history)}}</pre>
+    <pre id="heart_rate_history"></pre>
   </div>
+  <script>
+    window.state_history = {{state_history|safe}};
+    window.heart_rate_history = {{heart_rate_history|safe}};
+  </script>
 </div>
 
 {% endblock %}
