@@ -33,7 +33,7 @@ function format_history(id, hist, now) {
             + diff.milliseconds().toString().padStart(3, '0');
         v = entry[1];
 
-        return ts + ' (' + diffs + ' ago): ' + v;
+        return ts + ' (-' + diffs + ') ' + v;
     }).join('\n');
 }
 

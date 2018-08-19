@@ -1,0 +1,5 @@
+pre {
+    min-height: 6pc;
+    max-height: 6pc;
+    overflow: scroll;
+}
