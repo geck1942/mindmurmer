@@ -3,7 +3,7 @@ function showhideStatus(id) {
 	style.display = style.display === 'block' ? 'none' : 'block';
 }
 
-function removeAlert() {
+function removeAlerts() {
     window.history.pushState({}, document.title, '/');
 }
 
