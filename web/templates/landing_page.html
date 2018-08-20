@@ -2,21 +2,25 @@
 {% block content %}
 <div class="col-md-12">
   {% if alert_success %}
-  <div class="alert-success">
-    <p>Success! {{alert_success}}</p>
-    <a href="#" onclick="hideAlert('success')>x</a>
+  <div class="alert alert-success alert-dismissable show">
+    Success! {{alert_success}}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
   </div>
   {% endif %}
   {% if alert_error %}
-  <div class="alert-danger">
-    <p>Error: {{alert_error}}</p>
-    <a href="#" onclick="hideAlert('danger')">x</a>
+  <div class="alert alert-danger alert-dismissable show">
+    Error: {{alert_error}}
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
   </div>
   {% endif %}
   <h3>Mind Murmur Controller</h3>
   <hr>
   <div>
-    <p>Status (Tap To Start/Stop):</p>
+    <p>Status (Tap To Execute Run Script):</p>
     {% for status in statuses %}
     <div style="display:inline;border:1px;background-color:{{status.color}};padding:5px" onclick="showhideStatus('{{status.id}}')">{{status.name}}</div>
     {% endfor %}
@@ -25,39 +29,52 @@
       <hr>
       <p>{{status.name}} is {{status.text}}. Details: {{status.details}}</p>
       <p>Controls for {{status.name}}:</p>
-      <form action="/api/start/{{status.id}}" method="post" style="display:inline">
-        <button class="btn-primary">Start</button>
-      </form>
-      <form action="/api/stop/{{status.id}}" method="post" style="display:inline">
-        <button class="btn-danger">STOP</button>
+      <form action="/api/run/{{status.id}}" method="post" style="display:inline">
+        <button class="btn btn-danger">Run {{status.id}} script<br>(WARNING: careful to not run it twice)</button>
       </form>
     </div>
     {% endfor %}
   </div>
   <hr>
-  <div>
-    <p>Current Meditation Level: {{fr0stlevel}}</p>
-  </div>
+</div>
+<div class="col-md-6">
+  <p>Meditation Level History (scroll for more)</p>
+  <pre id="state_history"></pre>
+</div>
+<div class="col-md-6">
+  <p>Heart Rate History (scroll for more)</p>
+  <pre id="heart_rate_history"></pre>
+</div>
+<div class="col-md-12">
   <hr>
   <div>
+    <p>Current Meditation Level: {{state}}</p>
     <p>Trigger Meditation Level:</p>
-    {% for level in fr0stlevels %}
-    <form action="/api/fr0stlevel/{{level.id}}" method="post" style="display:inline">
-      <button class="btn-default">{{level.name}}</button>
+    {% for level in states %}
+    <form action="/api/state/{{level.id}}" method="post" style="display:inline">
+      <button class="btn btn-default">{{level.name}}</button>
     </form>
     {% endfor %}
   </div>
   <hr>
   <div>
-    <p>Current Heart Rate: {{heartrate}}</p>
-    <p>Heart Rate History</p>
-    <pre>{{'\n'.join(heartrate_history)}}</pre>
+    <p>Current Heart Rate: {{heart_rate}}</p>
+    <p>Trigger Heart Rate:</p>
+    <form action="/api/heart_rate" method="post" style="display:inline">
+      <label for="heart_rate">Heart Rate:</label>
+      <input type="range" class="form-control-range" id="heart_rate_slider" name="heart_rate" value="{{heart_rate|int or 60}}" min="0" max="180" oninput="updateHeartRate()">
+      <p>Selected Value: <span id="heart_rate">{{heart_rate|int or 60}}</span></p>
+      <button class="btn btn-primary">Trigger Heart Rate</button>
+    </form>
   </div>
   <hr>
   <div>
-    <p>MQ Message History</p>
-    <pre>{{'\n'.join(mqmessages)}}</pre>
+    &#x1F49C; The Mind Murmur Team, Burning Man 2018
   </div>
+  <script>
+    window.state_history = {{state_history|safe}};
+    window.heart_rate_history = {{heart_rate_history|safe}};
+  </script>
 </div>
 
 {% endblock %}

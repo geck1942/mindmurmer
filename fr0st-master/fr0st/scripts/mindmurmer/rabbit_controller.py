@@ -1,3 +1,4 @@
+import datetime
 import pika
 import json
 import uuid
@@ -143,6 +144,10 @@ class BaseCommand(object):
 
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
+
+    def get_timestamp(self):
+        """ REVISIT: If there is a timestamp in the message, use that instead """
+        return datetime.datetime.now()
 
 class HeartRateCommand(BaseCommand):
     """An instance of a heart rate command

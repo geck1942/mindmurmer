@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>flask-bootstrap</title>
-    <meta name="viewport" content="width=device-width, initial-scale=0.7">
+    <title>Mind Murmur Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" href="/static/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
     <!-- Optional theme -->
@@ -11,30 +11,22 @@
 
 
     <link rel="stylesheet" href="/static/font-awesome.min.css">
-    <style>
-/*
-
-          body {
-            padding-top: 5px;
-            padding-bottom: 5px;
-          }
-
-          .navbar {
-            margin-bottom: 5px;
-          }
-*/
-    </style>
+    <link rel="stylesheet" href="/static/styles.css">
   </head>
 
-  <body>
+  <body onload="start()">
     <div class="container">
       {% block content %}
       {% endblock %}
-      </div>
-    <script src="/static/script.js"></script>
+    </div>
+
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="/static/jquery.min.js"></script>
     <!-- Latest compiled and minified JavaScript -->
     <script src="/static/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <!-- moment.js date time maniulation library -->
+    <script src="/static/moment.min.js"></script>
+    <!-- Mind murmur scripts -->
+    <script src="/static/script.js"></script>
   </body>
 </html>

@@ -141,7 +141,7 @@ class BaseCommand(object):
 
     def get_timestamp(self):
         """ REVISIT: If there is a timestamp in the message, use that instead """
-        return datetime.datetime.now()
+        return datetime.datetime.utcnow()
 
 class HeartRateCommand(BaseCommand):
     """An instance of a heart rate command
@@ -184,6 +184,9 @@ class MeditationStateCommand(BaseCommand):
     def get_state(self):
         return self.State
 
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
+
     def to_string(self):
         return "({0}, {1})".format(self.CommandId, self.State)
 
@@ -201,6 +204,9 @@ class EEGDataCommand(BaseCommand):
 
     def get_values(self):
         return self.Values
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__,sort_keys=True, indent=4)
 
     def to_string(self):
         return "({0}, {1})".format(self.CommandId, self.Values)
